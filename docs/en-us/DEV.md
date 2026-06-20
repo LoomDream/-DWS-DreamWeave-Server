@@ -152,7 +152,7 @@ Content-Type: application/json
 {
   "client": {
     "name": "DreamweaveClient",
-    "version": "0.1.2",
+    "version": "0.1.5",
     "platform": "windows",
     "build": "dev",
     "device": "desktop"
@@ -167,9 +167,9 @@ Response payload:
   "handshake_id": "...",
   "server_nonce": "...",
   "server_key": "...",
-  "version": "0.1.2",
-  "minimum_client_version": "0.1.2",
-  "recommended_client_version": "0.1.2",
+  "version": "0.1.5",
+  "minimum_client_version": "0.1.5",
+  "recommended_client_version": "0.1.5",
   "api_revision": "3",
   "protocol_version": "2026.06",
   "client_metadata_required": true,
@@ -197,7 +197,7 @@ Content-Type: application/json
   "client_key": "...",
   "client": {
     "name": "DreamweaveClient",
-    "version": "0.1.2",
+    "version": "0.1.5",
     "platform": "windows",
     "build": "dev",
     "device": "desktop"
@@ -321,7 +321,7 @@ POST /api/hello
   "public_message": "Dreamweave server is online.",
   "maintenance": false,
   "maintenance_message": "",
-  "server_version": "0.1.2",
+  "server_version": "0.1.5",
   "protocol_version": "2026.06",
   "api_revision": "3",
   "server_name": "Dreamweave Alpha",
