@@ -69,8 +69,10 @@ class ContentConfig:
 class LegalConfig:
     terms_file: Path
     privacy_file: Path
+    eula_file: Path
     terms_dir: Path
     privacy_dir: Path
+    eula_dir: Path
     default_language: str
     fallback_languages: tuple[str, ...]
 
@@ -173,8 +175,10 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
         legal=LegalConfig(
             terms_file=_resolve_path(base_dir, str(legal.get("terms_file", "content/legal/terms.md"))),
             privacy_file=_resolve_path(base_dir, str(legal.get("privacy_file", "content/legal/privacy.md"))),
+            eula_file=_resolve_path(base_dir, str(legal.get("eula_file", "content/legal/eula.md"))),
             terms_dir=_resolve_path(base_dir, str(legal.get("terms_dir", "content/legal/terms"))),
             privacy_dir=_resolve_path(base_dir, str(legal.get("privacy_dir", "content/legal/privacy"))),
+            eula_dir=_resolve_path(base_dir, str(legal.get("eula_dir", "content/legal/eula"))),
             default_language=str(legal.get("default_language", "zh-CN")),
             fallback_languages=tuple(str(lang) for lang in legal.get("fallback_languages", ["zh-CN", "en-US", "ja-JP", "ru-RU"])),
         ),
