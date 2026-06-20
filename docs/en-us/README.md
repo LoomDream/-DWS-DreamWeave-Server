@@ -163,7 +163,7 @@ The admin panel uses a single Admin Token. No username/password login is require
 ```toml
 [admin]
 enabled = true
-panel_version = "0.1.2"
+panel_version = "0.1.5"
 token = "change-me-dreamweave-admin-token"
 max_sql_rows = 200
 ```
@@ -250,8 +250,8 @@ Both endpoints are under `/api/*`, so they require normal `X-Dreamweave-*` reque
 
 ```toml
 [version]
-minimum_client_version = "0.1.2"
-recommended_client_version = "0.1.2"
+minimum_client_version = "0.1.5"
+recommended_client_version = "0.1.5"
 protocol_version = "2026.06"
 api_revision = "3"
 update_required = false

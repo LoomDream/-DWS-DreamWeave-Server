@@ -55,11 +55,11 @@ GET /api/status
 
 ```toml
 [server]
-version = "0.1.2"
+version = "0.1.5"
 
 [version]
-minimum_client_version = "0.1.2"
-recommended_client_version = "0.1.2"
+minimum_client_version = "0.1.5"
+recommended_client_version = "0.1.5"
 protocol_version = "2026.06"
 api_revision = "3"
 

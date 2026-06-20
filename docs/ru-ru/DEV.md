@@ -13,7 +13,7 @@ Content-Type: application/json
 {
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.2",
+    "version": "0.1.5",
     "platform": "web",
     "build": "dev",
     "device": "browser"
@@ -36,7 +36,7 @@ server_key = MD5(server_secret + ":" + server_nonce)
   "client_key": "...",
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.2",
+    "version": "0.1.5",
     "platform": "web",
     "build": "dev",
     "device": "browser"
