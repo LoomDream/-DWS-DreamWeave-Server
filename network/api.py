@@ -138,7 +138,8 @@ class DreamweaveApi:
             story_content_ok = story_exists or story_scene_count > 0
             legal_terms_exists = self.config.legal.terms_file.exists()
             legal_privacy_exists = self.config.legal.privacy_file.exists()
-            degraded = not database_ok or not story_content_ok or not legal_terms_exists or not legal_privacy_exists
+            legal_eula_exists = self.config.legal.eula_file.exists()
+            degraded = not database_ok or not story_content_ok or not legal_terms_exists or not legal_privacy_exists or not legal_eula_exists
             return self.ok(
                 "api/status",
                 {
@@ -169,7 +170,7 @@ class DreamweaveApi:
                         "auth": {"ok": True, "active_handshakes": authenticated_handshakes},
                         "database": {"ok": database_ok},
                         "content": {"ok": story_content_ok, "scene_count": story_scene_count},
-                        "legal": {"ok": legal_terms_exists and legal_privacy_exists},
+                        "legal": {"ok": legal_terms_exists and legal_privacy_exists and legal_eula_exists},
                     },
                     "database": {
                         "ok": database_ok,
@@ -186,6 +187,7 @@ class DreamweaveApi:
                     "legal": {
                         "terms_file_exists": legal_terms_exists,
                         "privacy_file_exists": legal_privacy_exists,
+                        "eula_file_exists": legal_eula_exists,
                     },
                     "handshakes": {
                         "total": handshake_counts["total"],
@@ -201,6 +203,10 @@ class DreamweaveApi:
         @app.get("/api/legal/privacy")
         def legal_privacy(lang: str | None = None) -> dict[str, Any]:
             return self.legal_document("api/legal/privacy", "privacy", lang)
+
+        @app.get("/api/legal/eula")
+        def legal_eula(lang: str | None = None) -> dict[str, Any]:
+            return self.legal_document("api/legal/eula", "eula", lang)
 
         @app.post("/api/hello")
         def hello(request: HelloRequest, response: Response) -> dict[str, Any]:
@@ -475,8 +481,18 @@ class DreamweaveApi:
         )
 
     def resolve_legal_document(self, kind: str, lang: str | None) -> tuple[Any, str]:
-        directory = self.config.legal.terms_dir if kind == "terms" else self.config.legal.privacy_dir
-        legacy_path = self.config.legal.terms_file if kind == "terms" else self.config.legal.privacy_file
+        directories = {
+            "terms": self.config.legal.terms_dir,
+            "privacy": self.config.legal.privacy_dir,
+            "eula": self.config.legal.eula_dir,
+        }
+        legacy_paths = {
+            "terms": self.config.legal.terms_file,
+            "privacy": self.config.legal.privacy_file,
+            "eula": self.config.legal.eula_file,
+        }
+        directory = directories[kind]
+        legacy_path = legacy_paths[kind]
         allowed_languages = list(
             dict.fromkeys(
                 [normalize_language(self.config.legal.default_language)]
