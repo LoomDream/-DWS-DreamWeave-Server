@@ -1,20 +1,23 @@
 # Dreamweave Server
 
-Dreamweave 织梦 3D 联机游戏服务端。当前版本基于 FastAPI 暴露 HTTP API，使用 SQLite 保存用户和玩家状态，并提供客户端握手鉴权、请求签名、剧情内容加密传输、服务器版本查询和状态查看。
+Dreamweave 织梦 3D 联机游戏服务端。当前版本基于 FastAPI 暴露 HTTP API，使用 SQLite 保存用户、会话、玩家状态和调用日志，并提供客户端鉴权、请求签名、剧情内容加密传输、状态查询和 Token 管理面板。
 
 英文文档位于 [docs/en-us](docs/en-us)。
 
 ## 功能
 
-- 使用 FastAPI 暴露 HTTP API，路由统一为 `/api/*`。
-- 使用 SQLite 保存用户、登录会话和玩家状态。
-- 通过 `/api/hello` 建立客户端握手会话。
-- 所有业务 API 请求都必须携带 `X-Dreamweave-*` 签名请求头。
-- 请求签名覆盖 HTTP method、path、body MD5、timestamp、nonce 和 session key。
-- 剧情 JSON 传输包含 MD5 完整性校验和开发者密钥 proof。
-- 剧情 payload 使用应用层加密传输，不依赖 HTTPS 才能工作。
+- FastAPI HTTP API，业务接口统一位于 `/api/*`。
+- SQLite 存储用户、登录会话、玩家状态、握手会话、请求 nonce 和调用日志。
+- `/api/hello` 建立客户端握手，除握手外的 `/api/*` 请求都需要 `X-Dreamweave-*` 签名。
+- `/api/content/story` 返回加密剧情包，带 MD5 完整性校验和开发者密钥 proof。
+- `/api/version` 和 `/api/status` 返回 JSON，内容由 `config.toml` 配置。
+- `/api/content/audio` 和 `/api/content/audio/{filename}` 提供剧情音频列表和 WAV 流式传输。
+- `/admin` 提供 Token 管理面板，无需用户名密码。
+- 管理面板支持调用日志、端点说明、端点测试、可视化 SQL、表结构/数据查看、多剧情文件管理。
 
-## 环境要求
+## 快速启动
+
+要求：
 
 - Python 3.11+
 - pip
@@ -25,31 +28,13 @@ Dreamweave 织梦 3D 联机游戏服务端。当前版本基于 FastAPI 暴露 H
 pip install -r requirements.txt
 ```
 
-## 快速启动
-
-启动前请先修改 `config.toml`，尤其是密钥配置：
-
-```toml
-[security]
-server_secret = "change-me-dreamweave-server-secret"
-developer_secret = "change-me-dreamweave-developer-secret"
-handshake_ttl_seconds = 300
-```
-
-非 development/local 环境会拒绝空密钥或示例密钥。也可以通过环境变量覆盖：
-
-```powershell
-$env:DREAMWEAVE_SERVER_SECRET = "..."
-$env:DREAMWEAVE_DEVELOPER_SECRET = "..."
-```
-
-启动服务：
+启动：
 
 ```powershell
 python main.py
 ```
 
-也可以使用一键运行脚本：
+Windows 一键脚本：
 
 ```powershell
 .\run.bat
@@ -68,30 +53,49 @@ chmod +x ./run.sh
 http://127.0.0.1:7777
 ```
 
-服务运行后可以打开 FastAPI 文档：
+常用入口：
 
 ```text
-http://127.0.0.1:7777/docs
+本地化文档:   http://127.0.0.1:7777/docs
+Swagger UI:   http://127.0.0.1:7777/swagger
+管理面板:     http://127.0.0.1:7777/admin
 ```
 
-## 项目结构
+`/docs` 默认中文，可使用 `?lang=en-US`、`?lang=ja-JP`、`?lang=ru-RU` 切换英文、日文、俄文。FastAPI 原生 Swagger UI 保留在 `/swagger`。
+
+## 配置
+
+核心配置在 `config.toml`。
+
+```toml
+[server]
+host = "0.0.0.0"
+port = 7777
+version = "0.1.0"
+environment = "development"
+
+[admin]
+enabled = true
+panel_version = "0.1.0"
+token = "change-me-dreamweave-admin-token"
+max_sql_rows = 200
+
+[security]
+server_secret = "change-me-dreamweave-server-secret"
+developer_secret = "change-me-dreamweave-developer-secret"
+
+[content]
+story_file = "content/story.json"
+story_dir = "story"
+audio_dir = "wav/story"
+```
+
+非 `development/local/dev` 环境会拒绝空密钥和示例密钥。也可以用环境变量覆盖：
 
 ```text
-.
-|-- main.py              # 服务入口
-|-- config.toml          # 运行配置
-|-- DEV.md               # 中文协议和开发说明
-|-- requirements.txt     # Python 依赖
-|-- content/
-|   `-- story.json       # 剧情、对话、任务内容
-|-- docs/
-|   `-- en-us/           # 英文文档
-`-- network/
-    |-- api.py           # FastAPI 路由和请求鉴权
-    |-- config.py        # TOML 配置加载
-    |-- content.py       # 剧情包加载和加密
-    |-- crypto.py        # MD5 proof、会话密钥、payload 加密工具
-    `-- db.py            # SQLite 用户、会话、玩家状态存储
+DREAMWEAVE_SERVER_SECRET
+DREAMWEAVE_DEVELOPER_SECRET
+DREAMWEAVE_ADMIN_TOKEN
 ```
 
 ## API 概览
@@ -114,10 +118,12 @@ POST /api/login
 POST /api/sync/get
 POST /api/sync/update
 POST /api/content/story
+GET  /api/content/audio
+GET  /api/content/audio/{filename}
 POST /api/content/ack
 ```
 
-所有鉴权端点都必须携带：
+鉴权请求头：
 
 ```http
 X-Dreamweave-Handshake: <handshake_id>
@@ -126,104 +132,135 @@ X-Dreamweave-Nonce: <unique_request_nonce>
 X-Dreamweave-Key: <request_key>
 ```
 
-完整握手流程和签名公式见 [DEV.md](DEV.md)。
+完整签名流程见 [DEV.md](DEV.md)。
 
-`GET /api/status` 会返回非敏感服务状态，例如服务版本、运行时长、数据库可用性、剧情文件可用性和当前握手会话数量。
+## 管理面板
 
-`GET /api/legal/terms` 和 `GET /api/legal/privacy` 会返回 Markdown 格式的用户协议和隐私政策。
-
-`GET /api/version` 和 `GET /api/status` 的返回内容都由 `config.toml` 控制，并且所有接口返回值都是 JSON。
-
-## 版本和状态配置
-
-`config.toml` 中的 `[version]` 控制 `/api/version`：
-
-```toml
-[version]
-minimum_client_version = "0.1.0"
-recommended_client_version = "0.1.0"
-protocol_version = "2026.06"
-api_revision = "1"
-update_required = false
-download_url = ""
-release_notes_url = ""
-```
-
-`[status]` 控制 `/api/status` 以及部分功能开关：
-
-```toml
-[status]
-public_message = "Dreamweave server is online."
-maintenance = false
-maintenance_message = ""
-allow_registration = true
-allow_login = true
-allow_sync = true
-allow_content_download = true
-max_players = 100
-status_components = ["api", "database", "content", "auth"]
-```
-
-## Cookie
-
-服务端会写入并优先读取以下 Cookie：
-
-- `dw_handshake`：握手 id，用于后续请求优先识别客户端握手会话。
-- `dw_session`：登录 session token，用于后续同步请求优先识别登录用户。
-
-握手 id 读取优先级为 `X-Dreamweave-Handshake` 请求头优先，Cookie 回退。登录 token 读取优先级为 `dw_session` Cookie 优先，请求体 `token` 回退。
-
-Cookie 行为可通过 `config.toml` 配置：
-
-```toml
-[cookies]
-secure = false
-samesite = "lax"
-domain = ""
-handshake_cookie = "dw_handshake"
-session_cookie = "dw_session"
-```
-
-## 数据库
-
-服务会根据 `config.toml` 自动创建 SQLite 数据库：
-
-```toml
-[database]
-path = "dreamweave.sqlite3"
-```
-
-当前表：
-
-- `users`
-- `sessions`
-- `player_state`
-- `handshakes`
-- `handshake_nonces`
-
-## 内容数据
-
-剧情、对话和任务数据当前存放在：
+入口：
 
 ```text
-content/story.json
+GET /admin
 ```
 
-`POST /api/content/story` 会返回加密内容包：
+管理 API 支持三种 Token 传递方式：
 
-- `md5`：内容完整性哈希
-- `server_key`：开发者密钥 proof
-- `payload`：base64 编码的加密剧情 JSON
+- `X-Admin-Token`
+- `Authorization: Bearer <token>`
+- `dw_admin_token` Cookie
 
-客户端校验并解密后，通过 `POST /api/content/ack` 确认。
+管理能力：
 
-## 开发说明
+- 概览：面板版本、API revision、服务器版本、协议版本、数据库路径、剧情目录。
+- 端点测试：查看每个端点的鉴权方式和说明，并从浏览器直接发起测试请求。
+- 调用日志：查看 `/api/*` 和 `/admin/api/*` 调用记录。
+- 剧情管理：创建、查看、编辑 `./story/<第几章>-<第几幕>.json`。
+- SQL 管理：查看 SQLite 表、字段、索引、外键、分页数据。
+- SQL 执行器：默认只读查询；选择写入时允许单条写语句。
 
-运行语法检查：
+## 多剧情文件
+
+剧情目录：
+
+```text
+./story/
+```
+
+文件命名：
+
+```text
+<第几章>-<第几幕>.json
+```
+
+示例：
+
+```text
+story/1-1.json
+story/1-2.json
+story/2-1.json
+```
+
+每个 JSON 顶部需要 `meta` 元信息：
+
+```json
+{
+  "meta": {
+    "chapter": 1,
+    "act": 1,
+    "chapter_title": "第一章：织梦初醒",
+    "scene_title": "第一幕：空港回声"
+  },
+  "characters": [],
+  "backgrounds": [],
+  "audio": [
+    {
+      "id": "intro_bgm",
+      "kind": "bgm",
+      "file": "chapter1_act1_bgm.wav",
+      "url": "/api/content/audio/chapter1_act1_bgm.wav",
+      "loop": true,
+      "volume": 0.75
+    }
+  ],
+  "dialogues": [],
+  "tasks": []
+}
+```
+
+当 `story/` 目录存在并包含剧情文件时，`POST /api/content/story` 会返回剧情集合；否则回退到旧的 `content/story.json`。
+
+## 剧情音频
+
+音频文件目录：
+
+```text
+wav/story/
+```
+
+支持 `.wav` 文件。文件名只能使用字母、数字、下划线、点和短横线，例如：
+
+```text
+wav/story/chapter1_act1_bgm.wav
+wav/story/luna_intro_001.wav
+```
+
+音频 API：
+
+```text
+GET /api/content/audio
+GET /api/content/audio/{filename}
+```
+
+这两个端点位于 `/api/*` 下，因此同样需要正常的 `X-Dreamweave-*` 客户端鉴权签名。列表接口返回文件名、大小、更新时间、URL 和 content type；文件接口以 `audio/wav` 流式返回 WAV 文件。
+
+## 项目结构
+
+```text
+.
+|-- main.py
+|-- config.toml
+|-- run.bat
+|-- run.sh
+|-- admin_ui/
+|   `-- index.html
+|-- content/
+|   |-- story.json
+|   `-- legal/
+|-- story/
+|   `-- 1-1.json
+|-- network/
+|   |-- admin.py
+|   |-- api.py
+|   |-- config.py
+|   |-- content.py
+|   |-- crypto.py
+|   `-- db.py
+`-- docs/
+    `-- en-us/
+```
+
+## 开发检查
 
 ```powershell
 $files = @('main.py') + (Get-ChildItem .\network -Filter *.py | ForEach-Object { $_.FullName })
 python -m py_compile @files
 ```
-
-当前内容加密是基于 SHA-256 派生 XOR 流的开发期实现。公开测试或正式上线前，建议替换为 AES-GCM 或 ChaCha20-Poly1305 这类带认证的加密算法。

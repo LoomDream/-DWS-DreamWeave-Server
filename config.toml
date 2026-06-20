@@ -16,6 +16,14 @@ update_required = false
 download_url = ""
 release_notes_url = ""
 
+[admin]
+enabled = true
+panel_version = "0.1.0"
+# Development default only. Outside development, set a non-sample value here
+# or provide DREAMWEAVE_ADMIN_TOKEN.
+token = "change-me-dreamweave-admin-token"
+max_sql_rows = 200
+
 [security]
 # Development defaults only. Outside development, set non-sample values here
 # or provide DREAMWEAVE_SERVER_SECRET and DREAMWEAVE_DEVELOPER_SECRET.
@@ -47,7 +55,13 @@ path = "dreamweave.sqlite3"
 
 [content]
 story_file = "content/story.json"
+story_dir = "story"
+audio_dir = "wav/story"
 
 [legal]
 terms_file = "content/legal/terms.md"
 privacy_file = "content/legal/privacy.md"
+terms_dir = "content/legal/terms"
+privacy_dir = "content/legal/privacy"
+default_language = "zh-CN"
+fallback_languages = ["zh-CN", "en-US", "ja-JP", "ru-RU"]

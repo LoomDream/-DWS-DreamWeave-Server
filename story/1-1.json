@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "chapter": 1,
+    "act": 1,
+    "chapter_title": "序章：众星降临",
+    "scene_title": "第一幕：沉寂"
+  },
+  "characters": [
+    {
+      "id": "guide_luna",
+      "name": "露娜",
+      "role": "引导者"
+    },
+    {
+      "id": "player",
+      "name": "玩家",
+      "role": "织梦者"
+    }
+  ],
+  "backgrounds": [
+    {
+      "id": "sky_dock",
+      "name": "悬空港",
+      "asset": "bg/sky_dock"
+    }
+  ],
+  "dialogues": [
+    {
+      "speaker": "guide_luna",
+      "text": "同步完成。这里是第七悬空港，你的织梦核心已经上线。",
+      "emotion": "calm"
+    },
+    {
+      "speaker": "player",
+      "text": "我能做什么？",
+      "emotion": "neutral"
+    },
+    {
+      "speaker": "guide_luna",
+      "text": "先找到锚点。没有锚点，梦境地图会持续漂移。",
+      "emotion": "focused"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task_find_anchor",
+      "title": "寻找梦境锚点",
+      "description": "前往悬空港中央平台，激活第一枚梦境锚点。",
+      "next": []
+    }
+  ],
+  "audio": [
+    {
+      "id": "intro_bgm",
+      "kind": "bgm",
+      "file": "chapter1_act1_bgm.wav",
+      "url": "/api/content/audio/chapter1_act1_bgm.wav",
+      "loop": true,
+      "volume": 0.75
+    },
+    {
+      "id": "luna_intro_voice",
+      "kind": "voice",
+      "file": "luna_intro_001.wav",
+      "url": "/api/content/audio/luna_intro_001.wav",
+      "dialogue_index": 0,
+      "volume": 1.0
+    }
+  ]
+}
