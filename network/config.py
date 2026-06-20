@@ -130,15 +130,15 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
         server=ServerConfig(
             host=str(server.get("host", "0.0.0.0")),
             port=int(server.get("port", 7777)),
-            version=str(server.get("version", "0.1.0")),
+            version=str(server.get("version", "0.1.1")),
             motd=str(server.get("motd", "")),
             environment=environment,
             region=str(server.get("region", "local")),
             server_name=str(server.get("server_name", "Dreamweave")),
         ),
         version=VersionConfig(
-            minimum_client_version=str(version.get("minimum_client_version", "0.1.0")),
-            recommended_client_version=str(version.get("recommended_client_version", "0.1.0")),
+            minimum_client_version=str(version.get("minimum_client_version", "0.1.1")),
+            recommended_client_version=str(version.get("recommended_client_version", "0.1.1")),
             protocol_version=str(version.get("protocol_version", "2026.06")),
             api_revision=str(version.get("api_revision", "1")),
             update_required=bool(version.get("update_required", False)),
@@ -147,7 +147,7 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
         ),
         admin=AdminConfig(
             enabled=bool(admin.get("enabled", True)),
-            panel_version=str(admin.get("panel_version", "0.1.0")),
+            panel_version=str(admin.get("panel_version", "0.1.1")),
             token=admin_token,
             max_sql_rows=int(admin.get("max_sql_rows", 200)),
         ),

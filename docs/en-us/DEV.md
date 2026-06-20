@@ -149,7 +149,15 @@ Request:
 POST /api/hello
 Content-Type: application/json
 
-{}
+{
+  "client": {
+    "name": "DreamweaveClient",
+    "version": "0.1.1",
+    "platform": "windows",
+    "build": "dev",
+    "device": "desktop"
+  }
+}
 ```
 
 Response payload:
@@ -159,7 +167,12 @@ Response payload:
   "handshake_id": "...",
   "server_nonce": "...",
   "server_key": "...",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "minimum_client_version": "0.1.1",
+  "recommended_client_version": "0.1.1",
+  "api_revision": "2",
+  "protocol_version": "2026.06",
+  "client_metadata_required": true,
   "motd": "Dreamweave alpha server"
 }
 ```
@@ -181,7 +194,14 @@ Content-Type: application/json
 {
   "handshake_id": "...",
   "client_nonce": "...",
-  "client_key": "..."
+  "client_key": "...",
+  "client": {
+    "name": "DreamweaveClient",
+    "version": "0.1.1",
+    "platform": "windows",
+    "build": "dev",
+    "device": "desktop"
+  }
 }
 ```
 
@@ -205,6 +225,11 @@ Every request after the handshake must include these headers:
 X-Dreamweave-Handshake: <handshake_id>
 X-Dreamweave-Timestamp: <unix_seconds>
 X-Dreamweave-Nonce: <unique_request_nonce>
+X-Dreamweave-Client-Name: <client_name>
+X-Dreamweave-Client-Version: <client_version>
+X-Dreamweave-Client-Platform: <platform>
+X-Dreamweave-Client-Build: <build_id>
+X-Dreamweave-Client-Device: <device>
 X-Dreamweave-Key: <request_key>
 ```
 
@@ -221,8 +246,19 @@ MD5(
   request_path + ":" +
   body_md5 + ":" +
   timestamp + ":" +
-  request_nonce
+  request_nonce + ":" +
+  client_metadata_md5
 )
+```
+
+`X-Dreamweave-Client-Name` and `X-Dreamweave-Client-Version` are required. `Platform`, `Build`, and `Device` are optional. `client_metadata_md5` is the MD5 of these five fields joined with newline characters in this order:
+
+```text
+client_name + "\n" +
+client_version + "\n" +
+client_platform + "\n" +
+client_build + "\n" +
+client_device
 ```
 
 `body_md5` is the MD5 of the exact raw request body bytes. For a GET request with no body, use the MD5 of empty bytes:
@@ -265,9 +301,9 @@ POST /api/hello
   "public_message": "Dreamweave server is online.",
   "maintenance": false,
   "maintenance_message": "",
-  "server_version": "0.1.0",
+  "server_version": "0.1.1",
   "protocol_version": "2026.06",
-  "api_revision": "1",
+  "api_revision": "2",
   "server_name": "Dreamweave Alpha",
   "environment": "development",
   "region": "local",

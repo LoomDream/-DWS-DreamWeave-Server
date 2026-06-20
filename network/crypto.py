@@ -49,6 +49,7 @@ def request_proof(
     body_md5: str,
     timestamp: str,
     nonce: str,
+    client_metadata_md5: str = "",
 ) -> str:
     payload = ":".join(
         [
@@ -60,6 +61,7 @@ def request_proof(
             body_md5,
             timestamp,
             nonce,
+            client_metadata_md5,
         ]
     )
     return md5_hex(payload)

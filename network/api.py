@@ -24,10 +24,19 @@ from .crypto import (
 from .db import Database
 
 
+class ClientMetadata(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    version: str = Field(min_length=1, max_length=32)
+    platform: str | None = Field(default=None, max_length=32)
+    build: str | None = Field(default=None, max_length=64)
+    device: str | None = Field(default=None, max_length=96)
+
+
 class HelloRequest(BaseModel):
     handshake_id: str | None = None
     client_nonce: str | None = None
     client_key: str | None = None
+    client: ClientMetadata
 
 
 class RegisterRequest(BaseModel):
@@ -233,6 +242,11 @@ class DreamweaveApi:
                         "server_nonce": server_nonce,
                         "server_key": server_proof(self.config.security.server_secret, server_nonce),
                         "version": self.config.server.version,
+                        "minimum_client_version": self.config.version.minimum_client_version,
+                        "recommended_client_version": self.config.version.recommended_client_version,
+                        "api_revision": self.config.version.api_revision,
+                        "protocol_version": self.config.version.protocol_version,
+                        "client_metadata_required": True,
                         "motd": self.config.server.motd,
                     },
                 )
@@ -268,6 +282,7 @@ class DreamweaveApi:
                     "handshake_id": request.handshake_id,
                     "authenticated": True,
                     "encryption": "xor-sha256-session-key",
+                    "client": request.client.model_dump(exclude_none=True),
                 },
             )
 
@@ -399,6 +414,7 @@ class DreamweaveApi:
         timestamp = request.headers.get("X-Dreamweave-Timestamp")
         nonce = request.headers.get("X-Dreamweave-Nonce")
         client_key = request.headers.get("X-Dreamweave-Key")
+        client_metadata = self.client_metadata_from_headers(request)
         if not handshake_id or not timestamp or not nonce or not client_key:
             raise HTTPException(status_code=401, detail="missing client authentication headers")
 
@@ -424,12 +440,41 @@ class DreamweaveApi:
             md5_hex(body),
             timestamp,
             nonce,
+            self.client_metadata_md5(client_metadata),
         )
         if not constant_time_equal(client_key, expected):
             raise HTTPException(status_code=401, detail="client request key check failed")
 
         request.state.handshake_id = handshake_id
         request.state.handshake_session = session
+        request.state.client_metadata = client_metadata
+
+    def client_metadata_from_headers(self, request: Request) -> dict[str, str]:
+        client_name = (request.headers.get("X-Dreamweave-Client-Name") or "").strip()
+        client_version = (request.headers.get("X-Dreamweave-Client-Version") or "").strip()
+        if not client_name or not client_version:
+            raise HTTPException(status_code=401, detail="missing client metadata headers")
+        metadata = {
+            "name": client_name,
+            "version": client_version,
+            "platform": (request.headers.get("X-Dreamweave-Client-Platform") or "").strip(),
+            "build": (request.headers.get("X-Dreamweave-Client-Build") or "").strip(),
+            "device": (request.headers.get("X-Dreamweave-Client-Device") or "").strip(),
+        }
+        return {key: value[:128] for key, value in metadata.items()}
+
+    @staticmethod
+    def client_metadata_md5(metadata: dict[str, str]) -> str:
+        payload = "\n".join(
+            [
+                metadata.get("name", ""),
+                metadata.get("version", ""),
+                metadata.get("platform", ""),
+                metadata.get("build", ""),
+                metadata.get("device", ""),
+            ]
+        )
+        return md5_hex(payload)
 
     def cleanup_handshakes(self) -> None:
         self.database.cleanup_handshakes()
@@ -442,6 +487,15 @@ class DreamweaveApi:
             return
         client_host = request.client.host if request.client else ""
         user_agent = request.headers.get("user-agent", "")
+        client_metadata = getattr(request.state, "client_metadata", None)
+        if client_metadata is None:
+            client_metadata = {
+                "name": request.headers.get("X-Dreamweave-Client-Name", ""),
+                "version": request.headers.get("X-Dreamweave-Client-Version", ""),
+                "platform": request.headers.get("X-Dreamweave-Client-Platform", ""),
+                "build": request.headers.get("X-Dreamweave-Client-Build", ""),
+                "device": request.headers.get("X-Dreamweave-Client-Device", ""),
+            }
         try:
             self.database.record_call_log(
                 route=path,
@@ -451,6 +505,11 @@ class DreamweaveApi:
                 duration_ms=(time.perf_counter() - started) * 1000,
                 client_host=client_host,
                 user_agent=user_agent,
+                client_name=str(client_metadata.get("name", "")),
+                client_version=str(client_metadata.get("version", "")),
+                client_platform=str(client_metadata.get("platform", "")),
+                client_build=str(client_metadata.get("build", "")),
+                client_device=str(client_metadata.get("device", "")),
             )
         except Exception:
             pass

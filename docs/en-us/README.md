@@ -138,8 +138,14 @@ All authenticated routes require:
 X-Dreamweave-Handshake: <handshake_id>
 X-Dreamweave-Timestamp: <unix_seconds>
 X-Dreamweave-Nonce: <unique_request_nonce>
+X-Dreamweave-Client-Name: <client_name>
+X-Dreamweave-Client-Version: <client_version>
+X-Dreamweave-Client-Platform: <windows|android|ios|web>
+X-Dreamweave-Client-Build: <build_id>
 X-Dreamweave-Key: <request_key>
 ```
+
+`X-Dreamweave-Client-Name` and `X-Dreamweave-Client-Version` are required. Platform, build, and device metadata are optional, but they are included in the request signature. Clients must append the client-metadata MD5 to the existing signature payload when generating `X-Dreamweave-Key`.
 
 See `docs/en-us/DEV.md` for the full handshake flow and request-signing formula.
 
@@ -156,7 +162,7 @@ The admin panel uses a single Admin Token. No username/password login is require
 ```toml
 [admin]
 enabled = true
-panel_version = "0.1.0"
+panel_version = "0.1.1"
 token = "change-me-dreamweave-admin-token"
 max_sql_rows = 200
 ```
@@ -243,10 +249,10 @@ Both endpoints are under `/api/*`, so they require normal `X-Dreamweave-*` reque
 
 ```toml
 [version]
-minimum_client_version = "0.1.0"
-recommended_client_version = "0.1.0"
+minimum_client_version = "0.1.1"
+recommended_client_version = "0.1.1"
 protocol_version = "2026.06"
-api_revision = "1"
+api_revision = "2"
 update_required = false
 download_url = ""
 release_notes_url = ""

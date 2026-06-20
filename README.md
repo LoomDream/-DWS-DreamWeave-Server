@@ -71,12 +71,12 @@ Swagger UI:   http://127.0.0.1:7777/swagger
 [server]
 host = "0.0.0.0"
 port = 7777
-version = "0.1.0"
+version = "0.1.1"
 environment = "development"
 
 [admin]
 enabled = true
-panel_version = "0.1.0"
+panel_version = "0.1.1"
 token = "change-me-dreamweave-admin-token"
 max_sql_rows = 200
 
@@ -130,8 +130,14 @@ POST /api/content/ack
 X-Dreamweave-Handshake: <handshake_id>
 X-Dreamweave-Timestamp: <unix_seconds>
 X-Dreamweave-Nonce: <unique_request_nonce>
+X-Dreamweave-Client-Name: <client_name>
+X-Dreamweave-Client-Version: <client_version>
+X-Dreamweave-Client-Platform: <windows|android|ios|web>
+X-Dreamweave-Client-Build: <build_id>
 X-Dreamweave-Key: <request_key>
 ```
+
+`X-Dreamweave-Client-Name` 和 `X-Dreamweave-Client-Version` 为必填。平台、构建号和设备信息为可选，但会参与请求签名；客户端生成 `X-Dreamweave-Key` 时必须把客户端元信息 MD5 追加到原有签名材料末尾。
 
 完整签名流程见 [DEV.md](DEV.md)。
 

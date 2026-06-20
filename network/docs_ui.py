@@ -78,6 +78,11 @@ def docs_page(config: AppConfig, lang: str | None) -> str:
       <pre>X-Dreamweave-Handshake: &lt;handshake_id&gt;
 X-Dreamweave-Timestamp: &lt;unix_seconds&gt;
 X-Dreamweave-Nonce: &lt;unique_request_nonce&gt;
+X-Dreamweave-Client-Name: &lt;client_name&gt;
+X-Dreamweave-Client-Version: &lt;client_version&gt;
+X-Dreamweave-Client-Platform: &lt;platform&gt;
+X-Dreamweave-Client-Build: &lt;build_id&gt;
+X-Dreamweave-Client-Device: &lt;device&gt;
 X-Dreamweave-Key: &lt;request_key&gt;</pre>
     </section>
     <section class="card">
@@ -176,7 +181,7 @@ DOCS: dict[str, dict[str, Any]] = {
         "protocol": "协议版本",
         "admin": "管理面板",
         "auth_title": "客户端鉴权",
-        "auth_body": "除 /api/hello 外，/api/* 请求都需要握手后的签名请求头。Cookie 可辅助传递握手和登录信息，但签名仍必须正确。",
+        "auth_body": "除 /api/hello 外，/api/* 请求都需要握手后的签名请求头，并必须携带客户端名称和版本号。客户端元信息 MD5 会参与 X-Dreamweave-Key 计算。",
         "api_title": "常用端点",
         "content_title": "剧情和音频",
         "content_body": "剧情 JSON 位于 story/<章节>-<幕>.json，剧情音频位于 wav/story，并通过 /api/content/audio 流式传输。",
@@ -207,7 +212,7 @@ DOCS: dict[str, dict[str, Any]] = {
         "protocol": "Protocol Version",
         "admin": "Admin Panel",
         "auth_title": "Client Authentication",
-        "auth_body": "All /api/* requests except /api/hello require signed headers after the handshake.",
+        "auth_body": "All /api/* requests except /api/hello require signed headers after the handshake, plus client name and version metadata. The client-metadata MD5 is included in X-Dreamweave-Key.",
         "api_title": "Common Endpoints",
         "content_title": "Story And Audio",
         "content_body": "Story JSON lives in story/<chapter>-<act>.json. Story audio lives in wav/story and is streamed through /api/content/audio.",
@@ -238,7 +243,7 @@ DOCS: dict[str, dict[str, Any]] = {
         "protocol": "プロトコル版",
         "admin": "管理パネル",
         "auth_title": "クライアント認証",
-        "auth_body": "/api/hello 以外の /api/* は、ハンドシェイク後の署名ヘッダーが必要です。",
+        "auth_body": "/api/hello 以外の /api/* は、ハンドシェイク後の署名ヘッダーとクライアント名・バージョンが必要です。client metadata MD5 は X-Dreamweave-Key に含まれます。",
         "api_title": "主要エンドポイント",
         "content_title": "ストーリーと音声",
         "content_body": "ストーリー JSON は story/<chapter>-<act>.json、音声は wav/story に置き、/api/content/audio でストリームします。",
@@ -269,7 +274,7 @@ DOCS: dict[str, dict[str, Any]] = {
         "protocol": "Версия протокола",
         "admin": "Панель управления",
         "auth_title": "Клиентская аутентификация",
-        "auth_body": "Все /api/* запросы, кроме /api/hello, требуют подписанных заголовков после handshake.",
+        "auth_body": "Все /api/* запросы, кроме /api/hello, требуют подписанных заголовков после handshake, а также имя и версию клиента. MD5 client metadata входит в X-Dreamweave-Key.",
         "api_title": "Основные endpoint",
         "content_title": "Сюжет и аудио",
         "content_body": "Сюжет JSON находится в story/<chapter>-<act>.json. Аудио находится в wav/story и передается через /api/content/audio.",

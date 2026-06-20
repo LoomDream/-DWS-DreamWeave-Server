@@ -53,7 +53,15 @@ DREAMWEAVE_ADMIN_TOKEN
 POST /api/hello
 Content-Type: application/json
 
-{}
+{
+  "client": {
+    "name": "DreamweaveClient",
+    "version": "0.1.1",
+    "platform": "windows",
+    "build": "dev",
+    "device": "desktop"
+  }
+}
 ```
 
 返回 payload：
@@ -63,7 +71,12 @@ Content-Type: application/json
   "handshake_id": "...",
   "server_nonce": "...",
   "server_key": "...",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "minimum_client_version": "0.1.1",
+  "recommended_client_version": "0.1.1",
+  "api_revision": "2",
+  "protocol_version": "2026.06",
+  "client_metadata_required": true,
   "motd": "Dreamweave alpha server"
 }
 ```
@@ -83,7 +96,14 @@ Content-Type: application/json
 {
   "handshake_id": "...",
   "client_nonce": "...",
-  "client_key": "..."
+  "client_key": "...",
+  "client": {
+    "name": "DreamweaveClient",
+    "version": "0.1.1",
+    "platform": "windows",
+    "build": "dev",
+    "device": "desktop"
+  }
 }
 ```
 
@@ -105,6 +125,11 @@ session_key = SHA256(server_secret + ":" + server_nonce + ":" + client_nonce)
 X-Dreamweave-Handshake: <handshake_id>
 X-Dreamweave-Timestamp: <unix_seconds>
 X-Dreamweave-Nonce: <unique_request_nonce>
+X-Dreamweave-Client-Name: <client_name>
+X-Dreamweave-Client-Version: <client_version>
+X-Dreamweave-Client-Platform: <platform>
+X-Dreamweave-Client-Build: <build_id>
+X-Dreamweave-Client-Device: <device>
 X-Dreamweave-Key: <request_key>
 ```
 
@@ -121,8 +146,19 @@ MD5(
   request_path + ":" +
   body_md5 + ":" +
   timestamp + ":" +
-  request_nonce
+  request_nonce + ":" +
+  client_metadata_md5
 )
+```
+
+`X-Dreamweave-Client-Name` 和 `X-Dreamweave-Client-Version` 必填；`Platform`、`Build`、`Device` 可选。`client_metadata_md5` 是以下五个字段按顺序用换行符连接后的 MD5：
+
+```text
+client_name + "\n" +
+client_version + "\n" +
+client_platform + "\n" +
+client_build + "\n" +
+client_device
 ```
 
 GET 空 body 的 MD5：
@@ -358,9 +394,9 @@ eula_dir = "content/legal/eula"
   "status": "ok",
   "public_message": "Dreamweave server is online.",
   "maintenance": false,
-  "server_version": "0.1.0",
+  "server_version": "0.1.1",
   "protocol_version": "2026.06",
-  "api_revision": "1",
+  "api_revision": "2",
   "database": {"ok": true, "path": "..."},
   "content": {"story_file_exists": true, "story_file": "..."},
   "handshakes": {"total": 1, "authenticated": 1}

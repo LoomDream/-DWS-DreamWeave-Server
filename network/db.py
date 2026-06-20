@@ -85,10 +85,20 @@ class Database:
                     duration_ms REAL NOT NULL,
                     client_host TEXT NOT NULL,
                     user_agent TEXT NOT NULL,
+                    client_name TEXT NOT NULL DEFAULT '',
+                    client_version TEXT NOT NULL DEFAULT '',
+                    client_platform TEXT NOT NULL DEFAULT '',
+                    client_build TEXT NOT NULL DEFAULT '',
+                    client_device TEXT NOT NULL DEFAULT '',
                     created_at INTEGER NOT NULL
                 );
                 """
             )
+            _ensure_column(conn, "call_logs", "client_name", "TEXT NOT NULL DEFAULT ''")
+            _ensure_column(conn, "call_logs", "client_version", "TEXT NOT NULL DEFAULT ''")
+            _ensure_column(conn, "call_logs", "client_platform", "TEXT NOT NULL DEFAULT ''")
+            _ensure_column(conn, "call_logs", "client_build", "TEXT NOT NULL DEFAULT ''")
+            _ensure_column(conn, "call_logs", "client_device", "TEXT NOT NULL DEFAULT ''")
 
     def register_user(self, username: str, password: str, display_name: str | None = None) -> dict[str, Any]:
         now = int(time.time())
@@ -271,14 +281,36 @@ class Database:
         duration_ms: float,
         client_host: str,
         user_agent: str,
+        client_name: str = "",
+        client_version: str = "",
+        client_platform: str = "",
+        client_build: str = "",
+        client_device: str = "",
     ) -> None:
         with self.connection() as conn:
             conn.execute(
                 """
-                INSERT INTO call_logs (route, method, status_code, ok, duration_ms, client_host, user_agent, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO call_logs (
+                    route, method, status_code, ok, duration_ms, client_host, user_agent,
+                    client_name, client_version, client_platform, client_build, client_device, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (route, method, status_code, int(ok), duration_ms, client_host, user_agent, int(time.time())),
+                (
+                    route,
+                    method,
+                    status_code,
+                    int(ok),
+                    duration_ms,
+                    client_host,
+                    user_agent,
+                    client_name,
+                    client_version,
+                    client_platform,
+                    client_build,
+                    client_device,
+                    int(time.time()),
+                ),
             )
 
     def list_call_logs(self, limit: int = 100) -> list[dict[str, Any]]:
@@ -286,7 +318,9 @@ class Database:
         with self.connection() as conn:
             rows = conn.execute(
                 """
-                SELECT id, route, method, status_code, ok, duration_ms, client_host, user_agent, created_at
+                SELECT
+                    id, route, method, status_code, ok, duration_ms, client_host, user_agent,
+                    client_name, client_version, client_platform, client_build, client_device, created_at
                 FROM call_logs
                 ORDER BY id DESC
                 LIMIT ?
@@ -303,6 +337,11 @@ class Database:
                 "duration_ms": float(row["duration_ms"]),
                 "client_host": str(row["client_host"]),
                 "user_agent": str(row["user_agent"]),
+                "client_name": str(row["client_name"]),
+                "client_version": str(row["client_version"]),
+                "client_platform": str(row["client_platform"]),
+                "client_build": str(row["client_build"]),
+                "client_device": str(row["client_device"]),
                 "created_at": int(row["created_at"]),
             }
             for row in rows
@@ -472,3 +511,9 @@ def _safe_identifier(value: str) -> str:
     if not value.replace("_", "").isalnum():
         raise ValueError("invalid table name")
     return value
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    columns = {str(row["name"]) for row in conn.execute(f'PRAGMA table_info("{table}")').fetchall()}
+    if column not in columns:
+        conn.execute(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {definition}')
