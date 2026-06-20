@@ -73,12 +73,12 @@ Swagger UI:   http://127.0.0.1:7777/swagger
 [server]
 host = "0.0.0.0"
 port = 7777
-version = "0.1.2"
+version = "0.1.5"
 environment = "development"
 
 [admin]
 enabled = true
-panel_version = "0.1.2"
+panel_version = "0.1.5"
 token = "change-me-dreamweave-admin-token"
 max_sql_rows = 200
 

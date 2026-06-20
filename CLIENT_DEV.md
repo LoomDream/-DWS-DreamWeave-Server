@@ -1,6 +1,6 @@
 # Dreamweave 客户端开发文档
 
-版本：0.1.2
+版本：0.1.5
 
 本文档面向 Dreamweave 游戏客户端开发者，默认客户端目标为手机和电脑均可运行的 WebGL/HTML 客户端，也适用于 Unity、Godot、原生 OpenGL 客户端接入同一套 HTTP API。
 
@@ -43,9 +43,9 @@ POST /api/hello
 版本要求：
 
 ```text
-server_version = 0.1.2
-minimum_client_version = 0.1.2
-recommended_client_version = 0.1.2
+server_version = 0.1.5
+minimum_client_version = 0.1.5
+recommended_client_version = 0.1.5
 api_revision = 3
 ```
 
@@ -91,7 +91,7 @@ fetch(url, {
 
 ## 4. 客户端元信息
 
-0.1.2 起，客户端请求必须带客户端元信息。
+0.1.5 起，客户端请求必须带客户端元信息。
 
 `POST /api/hello` 请求体必须包含：
 
@@ -99,7 +99,7 @@ fetch(url, {
 {
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.2",
+    "version": "0.1.5",
     "platform": "web",
     "build": "dev",
     "device": "browser"
@@ -111,7 +111,7 @@ fetch(url, {
 
 ```http
 X-Dreamweave-Client-Name: DreamweaveWeb
-X-Dreamweave-Client-Version: 0.1.2
+X-Dreamweave-Client-Version: 0.1.5
 X-Dreamweave-Client-Platform: web
 X-Dreamweave-Client-Build: dev
 X-Dreamweave-Client-Device: browser
@@ -145,7 +145,7 @@ Content-Type: application/json
 {
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.2",
+    "version": "0.1.5",
     "platform": "web",
     "build": "dev",
     "device": "browser"
@@ -162,9 +162,9 @@ Content-Type: application/json
     "handshake_id": "...",
     "server_nonce": "...",
     "server_key": "...",
-    "version": "0.1.2",
-    "minimum_client_version": "0.1.2",
-    "recommended_client_version": "0.1.2",
+    "version": "0.1.5",
+    "minimum_client_version": "0.1.5",
+    "recommended_client_version": "0.1.5",
     "api_revision": "3",
     "protocol_version": "2026.06",
     "client_metadata_required": true
@@ -195,7 +195,7 @@ client_key = MD5(server_secret + ":" + server_nonce + ":" + client_nonce)
   "client_key": "...",
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.2",
+    "version": "0.1.5",
     "platform": "web",
     "build": "dev",
     "device": "browser"
@@ -222,7 +222,7 @@ X-Dreamweave-Handshake: <handshake_id>
 X-Dreamweave-Timestamp: <unix_seconds>
 X-Dreamweave-Nonce: <unique_request_nonce>
 X-Dreamweave-Client-Name: DreamweaveWeb
-X-Dreamweave-Client-Version: 0.1.2
+X-Dreamweave-Client-Version: 0.1.5
 X-Dreamweave-Client-Platform: web
 X-Dreamweave-Client-Build: dev
 X-Dreamweave-Client-Device: browser
@@ -269,7 +269,7 @@ client_device
 const SERVER = "http://127.0.0.1:7777";
 const CLIENT = {
   name: "DreamweaveWeb",
-  version: "0.1.2",
+  version: "0.1.5",
   platform: "web",
   build: "dev",
   device: navigator.userAgent.slice(0, 80),
@@ -281,11 +281,11 @@ async function md5Hex(textOrBytes) {
   throw new Error("md5Hex implementation required");
 }
 
-async function sha256Bytes(text) {
+async function sha256Bytes(textOrBytes) {
   const bytes = typeof textOrBytes === "string"
     ? new TextEncoder().encode(textOrBytes)
     : textOrBytes;
-  return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
 }
 
 function hex(bytes) {
