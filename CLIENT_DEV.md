@@ -474,6 +474,14 @@ POST /api/content/ack
 
 回传确认。
 
+地图种子：
+
+```http
+GET /api/seed/{map_id}
+```
+
+服务端会读取 `seed/map/<map_id>.txt`，其中 `map_id` 从 1 开始。返回 payload 中的 `seed` 字段用于客户端 Perlin 地形生成；`md5` 可用于缓存校验。该端点同样需要握手后的签名请求头。
+
 ## 10. 客户端性能建议
 
 手机和电脑共用 WebGL 客户端时，建议：

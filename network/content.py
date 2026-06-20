@@ -9,10 +9,11 @@ from .crypto import developer_proof, encrypt_json_payload, md5_hex
 
 
 class ContentStore:
-    def __init__(self, story_file: Path, story_dir: Path, audio_dir: Path, developer_secret: str) -> None:
+    def __init__(self, story_file: Path, story_dir: Path, audio_dir: Path, seed_dir: Path, developer_secret: str) -> None:
         self.story_file = story_file
         self.story_dir = story_dir
         self.audio_dir = audio_dir
+        self.seed_dir = seed_dir
         self.developer_secret = developer_secret
 
     def load_story(self) -> dict[str, Any]:
@@ -136,6 +137,29 @@ class ContentStore:
         root = self.audio_dir.resolve()
         if root != path.parent:
             raise ValueError("audio filename must stay inside audio directory")
+        return path
+
+    def read_map_seed(self, map_id: int) -> dict[str, Any]:
+        path = self.seed_path(map_id)
+        seed = path.read_text(encoding="utf-8").strip()
+        raw = seed.encode("utf-8")
+        return {
+            "map_id": map_id,
+            "seed": seed,
+            "algorithm": "perlin-terrain",
+            "file": path.name,
+            "path": str(path),
+            "md5": md5_hex(raw),
+            "updated_at": int(path.stat().st_mtime),
+        }
+
+    def seed_path(self, map_id: int) -> Path:
+        if map_id < 1:
+            raise ValueError("map id must start from 1")
+        path = (self.seed_dir / f"{map_id}.txt").resolve()
+        root = self.seed_dir.resolve()
+        if root != path.parent:
+            raise ValueError("seed filename must stay inside seed directory")
         return path
 
 

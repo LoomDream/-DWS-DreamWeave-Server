@@ -66,6 +66,7 @@ Story directory:
 story_file = "content/story.json"
 story_dir = "story"
 audio_dir = "wav/story"
+seed_dir = "seed/map"
 ```
 
 Files use this pattern:
@@ -283,6 +284,7 @@ POST /api/sync/get
 POST /api/sync/update
 POST /api/content/story
 POST /api/content/ack
+GET  /api/seed/{map_id}
 ```
 
 ## User Data
@@ -442,6 +444,29 @@ After decrypting and verifying the payload MD5, the client confirms with:
 ```http
 POST /api/content/ack
 ```
+
+## Map Seeds
+
+Map seed files live in:
+
+```text
+seed/map/
+```
+
+File names start from `1.txt`:
+
+```text
+seed/map/1.txt
+seed/map/2.txt
+```
+
+Clients request a seed through:
+
+```http
+GET /api/seed/{map_id}
+```
+
+The endpoint reads `seed/map/<map_id>.txt` and returns JSON with `seed`, `md5`, `updated_at`, and `algorithm = "perlin-terrain"`. `map_id` starts from 1. This endpoint requires normal `X-Dreamweave-*` request signing.
 
 Body:
 

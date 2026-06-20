@@ -104,6 +104,7 @@ POST /api/content/story
 GET  /api/content/audio
 GET  /api/content/audio/{filename}
 POST /api/content/ack
+GET  /api/seed/{map_id}
 ```
 
 ## ユーザーデータ
@@ -141,3 +142,26 @@ wav/story/*.wav
 ```
 
 暗号化ストーリーを受信したクライアントは、復号、MD5 検証、`/api/content/ack` による確認を行います。
+
+## マップ seed
+
+マップ seed ファイルは以下に置きます。
+
+```text
+seed/map/
+```
+
+ファイル名は `1.txt` から始めます。
+
+```text
+seed/map/1.txt
+seed/map/2.txt
+```
+
+クライアントは以下で seed を取得します。
+
+```http
+GET /api/seed/{map_id}
+```
+
+この endpoint は `seed/map/<map_id>.txt` を読み、`seed`、`md5`、`updated_at`、`algorithm = "perlin-terrain"` を JSON で返します。`map_id` は 1 から始まります。通常の `X-Dreamweave-*` 署名が必要です。

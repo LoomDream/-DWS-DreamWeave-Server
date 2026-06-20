@@ -13,6 +13,7 @@ Dreamweave 织梦 3D 联机游戏服务端。当前版本基于 FastAPI 暴露 H
 - `/api/content/story` 返回加密剧情包，带 MD5 完整性校验和开发者密钥 proof。
 - `/api/version` 和 `/api/status` 返回 JSON，内容由 `config.toml` 配置。
 - `/api/content/audio` 和 `/api/content/audio/{filename}` 提供剧情音频列表和 WAV 流式传输。
+- `/api/seed/{map_id}` 从 `seed/map/<地图序号>.txt` 返回地图种子码，用于 Perlin 地形生成。
 - `/admin` 提供 Token 管理面板，无需用户名密码。
 - 管理面板支持调用日志、端点说明、端点测试、可视化 SQL、表结构/数据查看、多剧情文件管理。
 
@@ -89,6 +90,7 @@ developer_secret = "change-me-dreamweave-developer-secret"
 story_file = "content/story.json"
 story_dir = "story"
 audio_dir = "wav/story"
+seed_dir = "seed/map"
 ```
 
 Web 客户端跨域配置：
@@ -134,6 +136,7 @@ POST /api/content/story
 GET  /api/content/audio
 GET  /api/content/audio/{filename}
 POST /api/content/ack
+GET  /api/seed/{map_id}
 ```
 
 鉴权请求头：
@@ -266,6 +269,46 @@ GET /api/content/audio/{filename}
 
 这两个端点位于 `/api/*` 下，因此同样需要正常的 `X-Dreamweave-*` 客户端鉴权签名。列表接口返回文件名、大小、更新时间、URL 和 content type；文件接口以 `audio/wav` 流式返回 WAV 文件。
 
+## 地图种子
+
+地图种子目录：
+
+```text
+./seed/map/
+```
+
+文件命名从 1 开始：
+
+```text
+seed/map/1.txt
+seed/map/2.txt
+```
+
+客户端通过以下端点获取种子码：
+
+```http
+GET /api/seed/{map_id}
+```
+
+示例返回：
+
+```json
+{
+  "ok": true,
+  "route": "api/seed/1",
+  "payload": {
+    "map_id": 1,
+    "seed": "dreamweave-map-1-alpha",
+    "algorithm": "perlin-terrain",
+    "file": "1.txt",
+    "md5": "...",
+    "updated_at": 1234567890
+  }
+}
+```
+
+该端点需要正常的 `X-Dreamweave-*` 客户端签名。`map_id` 必须从 1 开始，文件不存在时返回 `404`。
+
 ## 项目结构
 
 ```text
@@ -281,6 +324,9 @@ GET /api/content/audio/{filename}
 |   `-- legal/
 |-- story/
 |   `-- 1-1.json
+|-- seed/
+|   `-- map/
+|       `-- 1.txt
 |-- network/
 |   |-- admin.py
 |   |-- api.py

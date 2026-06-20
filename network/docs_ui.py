@@ -309,6 +309,7 @@ BASE_ENDPOINTS = [
     ("GET", "/api/content/audio"),
     ("GET", "/api/content/audio/{filename}"),
     ("POST", "/api/content/ack"),
+    ("GET", "/api/seed/{map_id}"),
 ]
 
 
@@ -362,6 +363,7 @@ DOCS: dict[str, dict[str, Any]] = {
             "列出剧情音频文件。",
             "流式返回 WAV 音频。",
             "确认剧情内容 MD5 proof。",
+            "返回地图种子码，用于 Perlin 地形生成。",
         ]),
     },
     "en-US": {
@@ -409,6 +411,7 @@ DOCS: dict[str, dict[str, Any]] = {
             "List story audio files.",
             "Stream a WAV audio file.",
             "Confirm story content MD5 proof.",
+            "Return a map seed for Perlin terrain generation.",
         ]),
     },
     "ja-JP": {
@@ -456,6 +459,7 @@ DOCS: dict[str, dict[str, Any]] = {
             "ストーリー音声ファイルを列挙します。",
             "WAV 音声をストリームします。",
             "ストーリー MD5 proof を確認します。",
+            "Perlin 地形生成用のマップ seed を返します。",
         ]),
     },
     "ru-RU": {
@@ -503,6 +507,7 @@ DOCS: dict[str, dict[str, Any]] = {
             "Показывает аудиофайлы сюжета.",
             "Передает WAV аудио потоком.",
             "Подтверждает MD5 proof контента.",
+            "Возвращает seed карты для генерации Perlin terrain.",
         ]),
     },
 }
