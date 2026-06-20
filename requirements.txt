@@ -1,0 +1,7 @@
+#
+# Dreamweave Server runtime dependencies
+# Python 3.11+ is required. Python 3.12 is recommended.
+#
+fastapi>=0.115,<1.0
+pydantic>=2.10,<3.0
+uvicorn[standard]>=0.34,<1.0
