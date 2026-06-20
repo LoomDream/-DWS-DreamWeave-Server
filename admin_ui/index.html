@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dreamweave Admin</title>
+  <style>
+    :root { color-scheme: light; --bg:#f6f7fb; --panel:#fff; --text:#182033; --muted:#65708a; --line:#d9deea; --accent:#1d6fd6; --bad:#b42318; --ok:#067647; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+    header { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    h1 { margin: 0; font-size: 18px; }
+    main { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 56px); }
+    nav { border-right: 1px solid var(--line); background: var(--panel); padding: 14px; }
+    nav button { width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); padding: 10px 12px; border-radius: 6px; cursor: pointer; }
+    nav button.active, nav button:hover { background: #eaf2ff; color: var(--accent); }
+    section { display: none; padding: 18px; }
+    section.active { display: block; }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+    .muted { color: var(--muted); }
+    input, textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; background: #fff; color: var(--text); }
+    textarea { min-height: 260px; font-family: ui-monospace, Consolas, monospace; }
+    button.primary { border: 0; background: var(--accent); color: white; border-radius: 6px; padding: 9px 12px; cursor: pointer; }
+    button.secondary { border: 1px solid var(--line); background: #fff; color: var(--text); border-radius: 6px; padding: 8px 11px; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f0f3f9; }
+    pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .status { font-weight: 600; }
+    .status.ok { color: var(--ok); }
+    .status.bad { color: var(--bad); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Dreamweave Admin</h1>
+    <div id="authState" class="muted">未认证</div>
+  </header>
+  <main>
+    <nav>
+      <button data-tab="dashboard" class="active">概览</button>
+      <button data-tab="endpoints">端点</button>
+      <button data-tab="logs">调用日志</button>
+      <button data-tab="story">剧情</button>
+      <button data-tab="sql">SQL</button>
+    </nav>
+    <div>
+      <section id="dashboard" class="active">
+        <div class="card">
+          <div class="toolbar">
+            <input id="token" type="password" placeholder="Admin Token">
+            <button class="primary" onclick="login()">验证</button>
+          </div>
+          <div id="loginMessage" class="muted"></div>
+        </div>
+        <div id="meta" class="grid" style="margin-top:12px"></div>
+      </section>
+      <section id="endpoints"><div class="toolbar"><button class="secondary" onclick="loadEndpoints()">刷新</button></div><div id="endpointsTable"></div></section>
+      <section id="logs"><div class="toolbar"><button class="secondary" onclick="loadLogs()">刷新</button></div><div id="logsTable"></div></section>
+      <section id="story">
+        <div class="toolbar"><button class="secondary" onclick="loadStory()">读取</button><button class="primary" onclick="saveStory()">保存</button></div>
+        <textarea id="storyText"></textarea>
+        <div id="storyMeta" class="muted"></div>
+      </section>
+      <section id="sql">
+        <div class="grid">
+          <div class="card"><div class="toolbar"><button class="secondary" onclick="loadTables()">刷新表</button></div><div id="tables"></div></div>
+          <div class="card">
+            <textarea id="sqlText">SELECT name FROM sqlite_master WHERE type = 'table'</textarea>
+            <div class="toolbar"><button class="primary" onclick="runSql()">查询</button></div>
+          </div>
+        </div>
+        <div id="sqlResult" style="margin-top:12px"></div>
+      </section>
+    </div>
+  </main>
+  <script>
+    let token = localStorage.getItem('dw_admin_token') || '';
+    document.getElementById('token').value = token;
+    const tabs = document.querySelectorAll('nav button');
+    tabs.forEach(btn => btn.addEventListener('click', () => {
+      tabs.forEach(item => item.classList.remove('active'));
+      document.querySelectorAll('section').forEach(item => item.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    }));
+    function headers() { return {'Content-Type':'application/json', 'X-Admin-Token': token}; }
+    async function api(path, options = {}) {
+      const response = await fetch(path, {...options, headers: {...headers(), ...(options.headers || {})}});
+      const data = await response.json();
+      if (!response.ok || data.ok === false) throw new Error(data.detail || data.error?.message || 'request failed');
+      return data.payload;
+    }
+    async function login() {
+      token = document.getElementById('token').value.trim();
+      try {
+        const payload = await api('/admin/api/auth', {method:'POST', body: JSON.stringify({token})});
+        localStorage.setItem('dw_admin_token', token);
+        document.cookie = 'dw_admin_token=' + encodeURIComponent(token) + '; SameSite=Lax; Path=/';
+        document.getElementById('authState').textContent = '已认证';
+        document.getElementById('authState').className = 'status ok';
+        document.getElementById('loginMessage').textContent = 'Token valid';
+        renderMeta(payload);
+      } catch (error) {
+        document.getElementById('authState').textContent = '认证失败';
+        document.getElementById('authState').className = 'status bad';
+        document.getElementById('loginMessage').textContent = error.message;
+      }
+    }
+    function renderMeta(meta) {
+      document.getElementById('meta').innerHTML = Object.entries(meta).map(([k,v]) => `<div class="card"><div class="muted">${k}</div><strong>${v}</strong></div>`).join('');
+    }
+    function table(rows) {
+      if (!rows.length) return '<div class="card muted">No rows</div>';
+      const cols = Object.keys(rows[0]);
+      return `<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td><pre>${escapeHtml(String(r[c] ?? ''))}</pre></td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    }
+    function escapeHtml(text) { return text.replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+    async function loadEndpoints() { document.getElementById('endpointsTable').innerHTML = table((await api('/admin/api/endpoints')).endpoints); }
+    async function loadLogs() { document.getElementById('logsTable').innerHTML = table((await api('/admin/api/logs?limit=100')).logs); }
+    async function loadStory() {
+      const payload = await api('/admin/api/story');
+      document.getElementById('storyText').value = JSON.stringify(payload.content, null, 2);
+      document.getElementById('storyMeta').textContent = `${payload.path} md5=${payload.md5}`;
+    }
+    async function saveStory() {
+      const content = JSON.parse(document.getElementById('storyText').value);
+      const payload = await api('/admin/api/story', {method:'POST', body: JSON.stringify({content})});
+      document.getElementById('storyMeta').textContent = `saved: ${payload.path}`;
+    }
+    async function loadTables() { document.getElementById('tables').innerHTML = (await api('/admin/api/sql/tables')).tables.map(t => `<div>${escapeHtml(t)}</div>`).join(''); }
+    async function runSql() {
+      const payload = await api('/admin/api/sql/query', {method:'POST', body: JSON.stringify({sql: document.getElementById('sqlText').value})});
+      const rows = payload.rows.map(row => Object.fromEntries(payload.columns.map((col, i) => [col, row[i]])));
+      document.getElementById('sqlResult').innerHTML = table(rows);
+    }
+    if (token) login();
+  </script>
+</body>
+</html>

@@ -23,7 +23,33 @@ python main.py
 ```text
 DREAMWEAVE_SERVER_SECRET
 DREAMWEAVE_DEVELOPER_SECRET
+DREAMWEAVE_ADMIN_TOKEN
 ```
+
+## 管理面板
+
+入口：
+
+```text
+GET /admin
+```
+
+管理 API 使用 `X-Admin-Token`、`Authorization: Bearer <token>` 或 `dw_admin_token` Cookie 鉴权。
+
+可用管理端点：
+
+```text
+POST /admin/api/auth
+GET  /admin/api/meta
+GET  /admin/api/endpoints
+GET  /admin/api/logs
+GET  /admin/api/story
+POST /admin/api/story
+GET  /admin/api/sql/tables
+POST /admin/api/sql/query
+```
+
+`/admin/api/sql/query` 仅允许只读语句：`SELECT`、`WITH`、`PRAGMA`。最大返回行数由 `config.toml` 的 `admin.max_sql_rows` 控制。
 
 ## 客户端鉴权
 

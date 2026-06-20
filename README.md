@@ -74,6 +74,12 @@ http://127.0.0.1:7777
 http://127.0.0.1:7777/docs
 ```
 
+管理面板：
+
+```text
+http://127.0.0.1:7777/admin
+```
+
 ## 项目结构
 
 ```text
@@ -133,6 +139,33 @@ X-Dreamweave-Key: <request_key>
 `GET /api/legal/terms` 和 `GET /api/legal/privacy` 会返回 Markdown 格式的用户协议和隐私政策。
 
 `GET /api/version` 和 `GET /api/status` 的返回内容都由 `config.toml` 控制，并且所有接口返回值都是 JSON。
+
+## 管理面板
+
+管理面板通过 Admin Token 鉴权，无需用户名和密码。启动前请配置：
+
+```toml
+[admin]
+enabled = true
+panel_version = "0.1.0"
+token = "change-me-dreamweave-admin-token"
+max_sql_rows = 200
+```
+
+非 development/local 环境会拒绝示例 token。也可以通过环境变量覆盖：
+
+```powershell
+$env:DREAMWEAVE_ADMIN_TOKEN = "..."
+```
+
+面板能力：
+
+- 查看面板版本、API revision、协议版本、服务版本。
+- 查看可用端点。
+- 查看 API 和管理 API 调用日志。
+- 查看和保存剧情 JSON。
+- 查看 SQLite 表。
+- 执行只读 SQL：`SELECT`、`WITH`、`PRAGMA`。
 
 ## 版本和状态配置
 

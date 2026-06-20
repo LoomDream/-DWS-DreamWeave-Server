@@ -16,6 +16,14 @@ update_required = false
 download_url = ""
 release_notes_url = ""
 
+[admin]
+enabled = true
+panel_version = "0.1.0"
+# Development default only. Outside development, set a non-sample value here
+# or provide DREAMWEAVE_ADMIN_TOKEN.
+token = "change-me-dreamweave-admin-token"
+max_sql_rows = 200
+
 [security]
 # Development defaults only. Outside development, set non-sample values here
 # or provide DREAMWEAVE_SERVER_SECRET and DREAMWEAVE_DEVELOPER_SECRET.

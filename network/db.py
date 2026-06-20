@@ -75,6 +75,18 @@ class Database:
                     PRIMARY KEY (handshake_id, nonce),
                     FOREIGN KEY (handshake_id) REFERENCES handshakes(handshake_id) ON DELETE CASCADE
                 );
+
+                CREATE TABLE IF NOT EXISTS call_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    route TEXT NOT NULL,
+                    method TEXT NOT NULL,
+                    status_code INTEGER NOT NULL,
+                    ok INTEGER NOT NULL,
+                    duration_ms REAL NOT NULL,
+                    client_host TEXT NOT NULL,
+                    user_agent TEXT NOT NULL,
+                    created_at INTEGER NOT NULL
+                );
                 """
             )
 
@@ -250,6 +262,77 @@ class Database:
         with self.connection() as conn:
             conn.execute("DELETE FROM handshakes WHERE expires_at <= ?", (int(time.time()),))
 
+    def record_call_log(
+        self,
+        route: str,
+        method: str,
+        status_code: int,
+        ok: bool,
+        duration_ms: float,
+        client_host: str,
+        user_agent: str,
+    ) -> None:
+        with self.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO call_logs (route, method, status_code, ok, duration_ms, client_host, user_agent, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (route, method, status_code, int(ok), duration_ms, client_host, user_agent, int(time.time())),
+            )
+
+    def list_call_logs(self, limit: int = 100) -> list[dict[str, Any]]:
+        safe_limit = min(max(limit, 1), 500)
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, route, method, status_code, ok, duration_ms, client_host, user_agent, created_at
+                FROM call_logs
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (safe_limit,),
+            ).fetchall()
+        return [
+            {
+                "id": int(row["id"]),
+                "route": str(row["route"]),
+                "method": str(row["method"]),
+                "status_code": int(row["status_code"]),
+                "ok": bool(row["ok"]),
+                "duration_ms": float(row["duration_ms"]),
+                "client_host": str(row["client_host"]),
+                "user_agent": str(row["user_agent"]),
+                "created_at": int(row["created_at"]),
+            }
+            for row in rows
+        ]
+
+    def list_tables(self) -> list[str]:
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT name FROM sqlite_master
+                WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+                ORDER BY name
+                """
+            ).fetchall()
+        return [str(row["name"]) for row in rows]
+
+    def query_readonly(self, sql: str, max_rows: int) -> dict[str, Any]:
+        statement = sql.strip()
+        if not _is_readonly_sql(statement):
+            raise ValueError("only SELECT, WITH, and PRAGMA statements are allowed")
+        with self.connection() as conn:
+            cursor = conn.execute(statement)
+            rows = cursor.fetchmany(max(1, max_rows))
+            columns = [description[0] for description in cursor.description or []]
+        return {
+            "columns": columns,
+            "rows": [[row[column] for column in columns] for row in rows],
+            "row_count": len(rows),
+        }
+
 
 def default_player_state() -> dict[str, Any]:
     return {
@@ -310,3 +393,10 @@ def _safe_float(value: Any, fallback: float) -> float:
     if result != result or result in (float("inf"), float("-inf")):
         return fallback
     return result
+
+
+def _is_readonly_sql(statement: str) -> bool:
+    lowered = statement.lower()
+    if ";" in lowered.rstrip(";"):
+        return False
+    return lowered.startswith("select ") or lowered.startswith("with ") or lowered.startswith("pragma ")

@@ -21,7 +21,33 @@ Outside development/local environments, startup rejects empty or sample secrets.
 ```text
 DREAMWEAVE_SERVER_SECRET
 DREAMWEAVE_DEVELOPER_SECRET
+DREAMWEAVE_ADMIN_TOKEN
 ```
+
+## Admin Panel
+
+Entry point:
+
+```text
+GET /admin
+```
+
+Admin APIs accept `X-Admin-Token`, `Authorization: Bearer <token>`, or the `dw_admin_token` cookie.
+
+Available admin endpoints:
+
+```text
+POST /admin/api/auth
+GET  /admin/api/meta
+GET  /admin/api/endpoints
+GET  /admin/api/logs
+GET  /admin/api/story
+POST /admin/api/story
+GET  /admin/api/sql/tables
+POST /admin/api/sql/query
+```
+
+`/admin/api/sql/query` only allows read-only statements: `SELECT`, `WITH`, `PRAGMA`. Maximum returned rows are controlled by `admin.max_sql_rows` in `config.toml`.
 
 ## Client Authentication
 

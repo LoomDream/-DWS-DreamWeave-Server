@@ -29,6 +29,14 @@ class VersionConfig:
 
 
 @dataclass(frozen=True)
+class AdminConfig:
+    enabled: bool
+    panel_version: str
+    token: str
+    max_sql_rows: int
+
+
+@dataclass(frozen=True)
 class SecurityConfig:
     server_secret: str
     developer_secret: str
@@ -78,6 +86,7 @@ class StatusConfig:
 class AppConfig:
     server: ServerConfig
     version: VersionConfig
+    admin: AdminConfig
     security: SecurityConfig
     cookies: CookieConfig
     database: DatabaseConfig
@@ -95,6 +104,7 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
 
     server = raw.get("server", {})
     version = raw.get("version", {})
+    admin = raw.get("admin", {})
     security = raw.get("security", {})
     cookies = raw.get("cookies", {})
     database = raw.get("database", {})
@@ -105,7 +115,8 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
     environment = str(server.get("environment", "development"))
     server_secret = _env_or_config("DREAMWEAVE_SERVER_SECRET", security.get("server_secret", ""))
     developer_secret = _env_or_config("DREAMWEAVE_DEVELOPER_SECRET", security.get("developer_secret", ""))
-    _validate_secrets(environment, server_secret, developer_secret)
+    admin_token = _env_or_config("DREAMWEAVE_ADMIN_TOKEN", admin.get("token", ""))
+    _validate_secrets(environment, server_secret, developer_secret, admin_token)
 
     return AppConfig(
         server=ServerConfig(
@@ -125,6 +136,12 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
             update_required=bool(version.get("update_required", False)),
             download_url=str(version.get("download_url", "")),
             release_notes_url=str(version.get("release_notes_url", "")),
+        ),
+        admin=AdminConfig(
+            enabled=bool(admin.get("enabled", True)),
+            panel_version=str(admin.get("panel_version", "0.1.0")),
+            token=admin_token,
+            max_sql_rows=int(admin.get("max_sql_rows", 200)),
         ),
         security=SecurityConfig(
             server_secret=server_secret,
@@ -177,7 +194,7 @@ def _env_or_config(env_name: str, config_value: object) -> str:
     return str(config_value)
 
 
-def _validate_secrets(environment: str, server_secret: str, developer_secret: str) -> None:
+def _validate_secrets(environment: str, server_secret: str, developer_secret: str, admin_token: str) -> None:
     if environment.lower() in {"development", "local", "dev"}:
         return
 
@@ -185,9 +202,10 @@ def _validate_secrets(environment: str, server_secret: str, developer_secret: st
         "",
         "change-me-dreamweave-server-secret",
         "change-me-dreamweave-developer-secret",
+        "change-me-dreamweave-admin-token",
     }
-    if server_secret in sample_values or developer_secret in sample_values:
+    if server_secret in sample_values or developer_secret in sample_values or admin_token in sample_values:
         raise ValueError(
-            "DREAMWEAVE_SERVER_SECRET and DREAMWEAVE_DEVELOPER_SECRET must be set "
+            "DREAMWEAVE_SERVER_SECRET, DREAMWEAVE_DEVELOPER_SECRET, and DREAMWEAVE_ADMIN_TOKEN must be set "
             "to non-sample values outside development."
         )

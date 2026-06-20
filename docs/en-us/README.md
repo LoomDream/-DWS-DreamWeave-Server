@@ -72,6 +72,12 @@ FastAPI docs are available while the server is running:
 http://127.0.0.1:7777/docs
 ```
 
+Admin panel:
+
+```text
+http://127.0.0.1:7777/admin
+```
+
 ## Project Layout
 
 ```text
@@ -131,6 +137,33 @@ See `docs/en-us/DEV.md` for the full handshake flow and request-signing formula.
 `GET /api/legal/terms` and `GET /api/legal/privacy` return the terms of service and privacy policy as Markdown content.
 
 `GET /api/version` and `GET /api/status` are controlled by `config.toml`, and every API response is JSON.
+
+## Admin Panel
+
+The admin panel uses a single Admin Token. No username/password login is required. Configure:
+
+```toml
+[admin]
+enabled = true
+panel_version = "0.1.0"
+token = "change-me-dreamweave-admin-token"
+max_sql_rows = 200
+```
+
+Outside development/local environments, sample admin tokens are rejected. You can also use:
+
+```powershell
+$env:DREAMWEAVE_ADMIN_TOKEN = "..."
+```
+
+Panel capabilities:
+
+- View panel version, API revision, protocol version, and server version.
+- View available endpoints.
+- View API and admin API call logs.
+- View and save story JSON.
+- View SQLite tables.
+- Run read-only SQL: `SELECT`, `WITH`, `PRAGMA`.
 
 ## Version And Status Config
 

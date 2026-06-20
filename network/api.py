@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from .admin import AdminPanel
 from .config import AppConfig
 from .content import ContentStore
 from .crypto import (
@@ -72,17 +73,24 @@ class DreamweaveApi:
 
         @app.middleware("http")
         async def client_auth_middleware(request: Request, call_next: Any) -> Any:
+            started = time.perf_counter()
             if not self.needs_client_auth(request):
-                return await call_next(request)
+                response = await call_next(request)
+                self.record_call(request, response.status_code, started)
+                return response
 
             try:
                 await self.authenticate_request(request)
             except HTTPException as exc:
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=exc.status_code,
                     content={"ok": False, "route": request.url.path.removeprefix("/"), "error": {"message": exc.detail}},
                 )
-            return await call_next(request)
+                self.record_call(request, response.status_code, started)
+                return response
+            response = await call_next(request)
+            self.record_call(request, response.status_code, started)
+            return response
 
         @app.get("/api/version")
         def version() -> dict[str, Any]:
@@ -294,6 +302,7 @@ class DreamweaveApi:
                 raise HTTPException(status_code=401, detail="developer key check failed")
             return self.ok("api/content/ack", {"verified": True})
 
+        app.include_router(AdminPanel(self.config, self.database, self.content).router())
         return app
 
     def require_user(self, token: str) -> dict[str, Any]:
@@ -373,6 +382,27 @@ class DreamweaveApi:
 
     def cleanup_handshakes(self) -> None:
         self.database.cleanup_handshakes()
+
+    def record_call(self, request: Request, status_code: int, started: float) -> None:
+        path = request.url.path
+        if path == "/admin/api/logs":
+            return
+        if not (path.startswith("/api/") or path.startswith("/admin/api/")):
+            return
+        client_host = request.client.host if request.client else ""
+        user_agent = request.headers.get("user-agent", "")
+        try:
+            self.database.record_call_log(
+                route=path,
+                method=request.method,
+                status_code=status_code,
+                ok=200 <= status_code < 400,
+                duration_ms=(time.perf_counter() - started) * 1000,
+                client_host=client_host,
+                user_agent=user_agent,
+            )
+        except Exception:
+            pass
 
     def check_database(self) -> bool:
         try:
