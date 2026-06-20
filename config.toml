@@ -17,7 +17,8 @@ download_url = ""
 release_notes_url = ""
 
 [security]
-# Change this before any public or shared test.
+# Development defaults only. Outside development, set non-sample values here
+# or provide DREAMWEAVE_SERVER_SECRET and DREAMWEAVE_DEVELOPER_SECRET.
 server_secret = "change-me-dreamweave-server-secret"
 developer_secret = "change-me-dreamweave-developer-secret"
 session_token_ttl_seconds = 86400

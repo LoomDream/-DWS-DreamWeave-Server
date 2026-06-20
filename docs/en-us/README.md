@@ -34,6 +34,13 @@ developer_secret = "change-me-dreamweave-developer-secret"
 handshake_ttl_seconds = 300
 ```
 
+Outside development/local environments, startup rejects empty or sample secrets. Secrets can also be provided through environment variables:
+
+```powershell
+$env:DREAMWEAVE_SERVER_SECRET = "..."
+$env:DREAMWEAVE_DEVELOPER_SECRET = "..."
+```
+
 Start the server:
 
 ```powershell

@@ -36,6 +36,13 @@ developer_secret = "change-me-dreamweave-developer-secret"
 handshake_ttl_seconds = 300
 ```
 
+非 development/local 环境会拒绝空密钥或示例密钥。也可以通过环境变量覆盖：
+
+```powershell
+$env:DREAMWEAVE_SERVER_SECRET = "..."
+$env:DREAMWEAVE_DEVELOPER_SECRET = "..."
+```
+
 启动服务：
 
 ```powershell

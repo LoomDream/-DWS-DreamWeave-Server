@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -101,13 +102,18 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
     legal = raw.get("legal", {})
     status = raw.get("status", {})
 
+    environment = str(server.get("environment", "development"))
+    server_secret = _env_or_config("DREAMWEAVE_SERVER_SECRET", security.get("server_secret", ""))
+    developer_secret = _env_or_config("DREAMWEAVE_DEVELOPER_SECRET", security.get("developer_secret", ""))
+    _validate_secrets(environment, server_secret, developer_secret)
+
     return AppConfig(
         server=ServerConfig(
             host=str(server.get("host", "0.0.0.0")),
             port=int(server.get("port", 7777)),
             version=str(server.get("version", "0.1.0")),
             motd=str(server.get("motd", "")),
-            environment=str(server.get("environment", "development")),
+            environment=environment,
             region=str(server.get("region", "local")),
             server_name=str(server.get("server_name", "Dreamweave")),
         ),
@@ -121,8 +127,8 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
             release_notes_url=str(version.get("release_notes_url", "")),
         ),
         security=SecurityConfig(
-            server_secret=str(security.get("server_secret", "")),
-            developer_secret=str(security.get("developer_secret", "")),
+            server_secret=server_secret,
+            developer_secret=developer_secret,
             session_token_ttl_seconds=int(security.get("session_token_ttl_seconds", 86400)),
             handshake_ttl_seconds=int(security.get("handshake_ttl_seconds", 300)),
         ),
@@ -162,3 +168,26 @@ def _resolve_path(base_dir: Path, value: str) -> Path:
     if path.is_absolute():
         return path
     return base_dir / path
+
+
+def _env_or_config(env_name: str, config_value: object) -> str:
+    env_value = os.getenv(env_name)
+    if env_value is not None:
+        return env_value
+    return str(config_value)
+
+
+def _validate_secrets(environment: str, server_secret: str, developer_secret: str) -> None:
+    if environment.lower() in {"development", "local", "dev"}:
+        return
+
+    sample_values = {
+        "",
+        "change-me-dreamweave-server-secret",
+        "change-me-dreamweave-developer-secret",
+    }
+    if server_secret in sample_values or developer_secret in sample_values:
+        raise ValueError(
+            "DREAMWEAVE_SERVER_SECRET and DREAMWEAVE_DEVELOPER_SECRET must be set "
+            "to non-sample values outside development."
+        )

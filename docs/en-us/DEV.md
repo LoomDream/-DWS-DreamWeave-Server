@@ -16,6 +16,13 @@ python main.py
 
 The server reads `config.toml` for host, port, version, SQLite path, content path, and shared secrets.
 
+Outside development/local environments, startup rejects empty or sample secrets. Secrets can be provided through environment variables:
+
+```text
+DREAMWEAVE_SERVER_SECRET
+DREAMWEAVE_DEVELOPER_SECRET
+```
+
 ## Client Authentication
 
 All `/api/*` routes require client authentication before request handling, except `/api/hello`, which is the handshake route used to create the authenticated session.

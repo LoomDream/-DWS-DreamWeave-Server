@@ -265,9 +265,9 @@ def default_player_state() -> dict[str, Any]:
 def sanitize_player_state(payload: dict[str, Any]) -> dict[str, Any]:
     state = default_player_state()
     if isinstance(payload.get("position"), dict):
-        state["position"] = _vector3(payload["position"])
+        state["position"] = _vector3(payload["position"], state["position"])
     if isinstance(payload.get("rotation"), dict):
-        state["rotation"] = _vector3(payload["rotation"])
+        state["rotation"] = _vector3(payload["rotation"], state["rotation"])
     if isinstance(payload.get("inventory"), list):
         state["inventory"] = [str(item) for item in payload["inventory"][:128]]
     if isinstance(payload.get("active_tasks"), list):
@@ -277,15 +277,36 @@ def sanitize_player_state(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(payload.get("stats"), dict):
         stats = payload["stats"]
         state["stats"] = {
-            "level": max(1, int(stats.get("level", 1))),
-            "xp": max(0, int(stats.get("xp", 0))),
+            "level": max(1, _safe_int(stats.get("level"), 1)),
+            "xp": max(0, _safe_int(stats.get("xp"), 0)),
         }
     return state
 
 
-def _vector3(value: dict[str, Any]) -> dict[str, float]:
+def _vector3(value: dict[str, Any], fallback: dict[str, float]) -> dict[str, float]:
     return {
-        "x": float(value.get("x", 0.0)),
-        "y": float(value.get("y", 0.0)),
-        "z": float(value.get("z", 0.0)),
+        "x": _safe_float(value.get("x"), fallback["x"]),
+        "y": _safe_float(value.get("y"), fallback["y"]),
+        "z": _safe_float(value.get("z"), fallback["z"]),
     }
+
+
+def _safe_int(value: Any, fallback: int) -> int:
+    if isinstance(value, bool):
+        return fallback
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return fallback
+
+
+def _safe_float(value: Any, fallback: float) -> float:
+    if isinstance(value, bool):
+        return fallback
+    try:
+        result = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return fallback
+    if result != result or result in (float("inf"), float("-inf")):
+        return fallback
+    return result

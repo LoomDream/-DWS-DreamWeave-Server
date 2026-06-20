@@ -18,6 +18,13 @@ python main.py
 
 服务会读取 `config.toml` 中的 host、port、版本号、SQLite 路径、内容路径和共享密钥。
 
+非 development/local 环境会拒绝空密钥或示例密钥。密钥可通过环境变量覆盖：
+
+```text
+DREAMWEAVE_SERVER_SECRET
+DREAMWEAVE_DEVELOPER_SECRET
+```
+
 ## 客户端鉴权
 
 除了 `/api/hello` 之外，所有 `/api/*` 路由都会在进入业务逻辑前进行客户端鉴权。
