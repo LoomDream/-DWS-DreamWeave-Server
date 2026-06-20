@@ -54,6 +54,18 @@ class CookieConfig:
 
 
 @dataclass(frozen=True)
+class CorsConfig:
+    enabled: bool
+    allow_origins: tuple[str, ...]
+    allow_origin_regex: str
+    allow_credentials: bool
+    allow_methods: tuple[str, ...]
+    allow_headers: tuple[str, ...]
+    expose_headers: tuple[str, ...]
+    max_age: int
+
+
+@dataclass(frozen=True)
 class DatabaseConfig:
     path: Path
 
@@ -97,6 +109,7 @@ class AppConfig:
     admin: AdminConfig
     security: SecurityConfig
     cookies: CookieConfig
+    cors: CorsConfig
     database: DatabaseConfig
     content: ContentConfig
     legal: LegalConfig
@@ -115,6 +128,7 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
     admin = raw.get("admin", {})
     security = raw.get("security", {})
     cookies = raw.get("cookies", {})
+    cors = raw.get("cors", {})
     database = raw.get("database", {})
     content = raw.get("content", {})
     legal = raw.get("legal", {})
@@ -130,24 +144,24 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
         server=ServerConfig(
             host=str(server.get("host", "0.0.0.0")),
             port=int(server.get("port", 7777)),
-            version=str(server.get("version", "0.1.0")),
+            version=str(server.get("version", "0.1.2")),
             motd=str(server.get("motd", "")),
             environment=environment,
             region=str(server.get("region", "local")),
             server_name=str(server.get("server_name", "Dreamweave")),
         ),
         version=VersionConfig(
-            minimum_client_version=str(version.get("minimum_client_version", "0.1.0")),
-            recommended_client_version=str(version.get("recommended_client_version", "0.1.0")),
+            minimum_client_version=str(version.get("minimum_client_version", "0.1.2")),
+            recommended_client_version=str(version.get("recommended_client_version", "0.1.2")),
             protocol_version=str(version.get("protocol_version", "2026.06")),
-            api_revision=str(version.get("api_revision", "1")),
+            api_revision=str(version.get("api_revision", "3")),
             update_required=bool(version.get("update_required", False)),
             download_url=str(version.get("download_url", "")),
             release_notes_url=str(version.get("release_notes_url", "")),
         ),
         admin=AdminConfig(
             enabled=bool(admin.get("enabled", True)),
-            panel_version=str(admin.get("panel_version", "0.1.0")),
+            panel_version=str(admin.get("panel_version", "0.1.2")),
             token=admin_token,
             max_sql_rows=int(admin.get("max_sql_rows", 200)),
         ),
@@ -163,6 +177,29 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
             domain=str(cookies.get("domain", "")),
             handshake_cookie=str(cookies.get("handshake_cookie", "dw_handshake")),
             session_cookie=str(cookies.get("session_cookie", "dw_session")),
+        ),
+        cors=CorsConfig(
+            enabled=bool(cors.get("enabled", True)),
+            allow_origins=tuple(
+                str(origin)
+                for origin in cors.get(
+                    "allow_origins",
+                    [
+                        "http://localhost:3000",
+                        "http://127.0.0.1:3000",
+                        "http://localhost:5173",
+                        "http://127.0.0.1:5173",
+                        "http://localhost:7777",
+                        "http://127.0.0.1:7777",
+                    ],
+                )
+            ),
+            allow_origin_regex=str(cors.get("allow_origin_regex", "")),
+            allow_credentials=bool(cors.get("allow_credentials", True)),
+            allow_methods=tuple(str(method) for method in cors.get("allow_methods", ["GET", "POST", "PUT", "OPTIONS"])),
+            allow_headers=tuple(str(header) for header in cors.get("allow_headers", ["*"])),
+            expose_headers=tuple(str(header) for header in cors.get("expose_headers", [])),
+            max_age=int(cors.get("max_age", 600)),
         ),
         database=DatabaseConfig(
             path=_resolve_path(base_dir, str(database.get("path", "dreamweave.sqlite3"))),

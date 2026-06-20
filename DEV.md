@@ -53,7 +53,15 @@ DREAMWEAVE_ADMIN_TOKEN
 POST /api/hello
 Content-Type: application/json
 
-{}
+{
+  "client": {
+    "name": "DreamweaveClient",
+    "version": "0.1.2",
+    "platform": "windows",
+    "build": "dev",
+    "device": "desktop"
+  }
+}
 ```
 
 返回 payload：
@@ -63,7 +71,12 @@ Content-Type: application/json
   "handshake_id": "...",
   "server_nonce": "...",
   "server_key": "...",
-  "version": "0.1.0",
+  "version": "0.1.2",
+  "minimum_client_version": "0.1.2",
+  "recommended_client_version": "0.1.2",
+  "api_revision": "3",
+  "protocol_version": "2026.06",
+  "client_metadata_required": true,
   "motd": "Dreamweave alpha server"
 }
 ```
@@ -83,7 +96,14 @@ Content-Type: application/json
 {
   "handshake_id": "...",
   "client_nonce": "...",
-  "client_key": "..."
+  "client_key": "...",
+  "client": {
+    "name": "DreamweaveClient",
+    "version": "0.1.2",
+    "platform": "windows",
+    "build": "dev",
+    "device": "desktop"
+  }
 }
 ```
 
@@ -105,6 +125,11 @@ session_key = SHA256(server_secret + ":" + server_nonce + ":" + client_nonce)
 X-Dreamweave-Handshake: <handshake_id>
 X-Dreamweave-Timestamp: <unix_seconds>
 X-Dreamweave-Nonce: <unique_request_nonce>
+X-Dreamweave-Client-Name: <client_name>
+X-Dreamweave-Client-Version: <client_version>
+X-Dreamweave-Client-Platform: <platform>
+X-Dreamweave-Client-Build: <build_id>
+X-Dreamweave-Client-Device: <device>
 X-Dreamweave-Key: <request_key>
 ```
 
@@ -121,8 +146,19 @@ MD5(
   request_path + ":" +
   body_md5 + ":" +
   timestamp + ":" +
-  request_nonce
+  request_nonce + ":" +
+  client_metadata_md5
 )
+```
+
+`X-Dreamweave-Client-Name` 和 `X-Dreamweave-Client-Version` 必填；`Platform`、`Build`、`Device` 可选。`client_metadata_md5` 是以下五个字段按顺序用换行符连接后的 MD5：
+
+```text
+client_name + "\n" +
+client_version + "\n" +
+client_platform + "\n" +
+client_build + "\n" +
+client_device
 ```
 
 GET 空 body 的 MD5：
@@ -149,6 +185,26 @@ GET  /api/content/audio
 GET  /api/content/audio/{filename}
 POST /api/content/ack
 ```
+
+## 用户数据
+
+用户数据至少包含：
+
+```json
+{
+  "uid": "player_001",
+  "nickname": "织梦者",
+  "email": "player@example.com",
+  "password_md5": "e10adc3949ba59abbe56e057f20f883e"
+}
+```
+
+- `uid`：用户唯一 ID，用于登录、同步和服务端识别。
+- `nickname`：玩家显示昵称。
+- `email`：联系邮箱，用于账号联系、找回或运营通知。
+- `password_md5`：客户端对 UTF-8 密码原文计算出的 32 位小写 MD5，用于注册和登录匹配。
+
+注册使用 `uid`、`nickname`、`email`、`password_md5`。登录使用 `uid` 和 `password_md5`。服务端会保存 `password_md5` 的服务端哈希，不保存明文密码。兼容字段 `username` 与 `display_name` 仍会返回给旧客户端；旧客户端传 `password` 时，服务端会转换为 MD5 凭据并在成功登录后升级存储。
 
 ## 内容传输
 
@@ -358,9 +414,9 @@ eula_dir = "content/legal/eula"
   "status": "ok",
   "public_message": "Dreamweave server is online.",
   "maintenance": false,
-  "server_version": "0.1.0",
+  "server_version": "0.1.2",
   "protocol_version": "2026.06",
-  "api_revision": "1",
+  "api_revision": "3",
   "database": {"ok": true, "path": "..."},
   "content": {"story_file_exists": true, "story_file": "..."},
   "handshakes": {"total": 1, "authenticated": 1}

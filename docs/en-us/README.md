@@ -6,6 +6,7 @@ Dreamweave Server is the backend for the Dreamweave 3D online game. The current 
 
 - FastAPI HTTP API with unified `/api/*` routes.
 - SQLite user database with registration, login, session tokens, and player-state sync.
+- User data includes `uid`, `nickname`, and `email`; legacy `username` and `display_name` fields are still returned for compatibility.
 - Client handshake authentication through `/api/hello`.
 - All business API requests must include `X-Dreamweave-*` signature headers.
 - Request signatures cover HTTP method, path, body MD5, timestamp, nonce, and session key.
@@ -138,8 +139,14 @@ All authenticated routes require:
 X-Dreamweave-Handshake: <handshake_id>
 X-Dreamweave-Timestamp: <unix_seconds>
 X-Dreamweave-Nonce: <unique_request_nonce>
+X-Dreamweave-Client-Name: <client_name>
+X-Dreamweave-Client-Version: <client_version>
+X-Dreamweave-Client-Platform: <windows|android|ios|web>
+X-Dreamweave-Client-Build: <build_id>
 X-Dreamweave-Key: <request_key>
 ```
+
+`X-Dreamweave-Client-Name` and `X-Dreamweave-Client-Version` are required. Platform, build, and device metadata are optional, but they are included in the request signature. Clients must append the client-metadata MD5 to the existing signature payload when generating `X-Dreamweave-Key`.
 
 See `docs/en-us/DEV.md` for the full handshake flow and request-signing formula.
 
@@ -156,7 +163,7 @@ The admin panel uses a single Admin Token. No username/password login is require
 ```toml
 [admin]
 enabled = true
-panel_version = "0.1.0"
+panel_version = "0.1.2"
 token = "change-me-dreamweave-admin-token"
 max_sql_rows = 200
 ```
@@ -243,10 +250,10 @@ Both endpoints are under `/api/*`, so they require normal `X-Dreamweave-*` reque
 
 ```toml
 [version]
-minimum_client_version = "0.1.0"
-recommended_client_version = "0.1.0"
+minimum_client_version = "0.1.2"
+recommended_client_version = "0.1.2"
 protocol_version = "2026.06"
-api_revision = "1"
+api_revision = "3"
 update_required = false
 download_url = ""
 release_notes_url = ""

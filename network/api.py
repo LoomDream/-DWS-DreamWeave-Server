@@ -4,6 +4,7 @@ import time
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
@@ -24,21 +25,36 @@ from .crypto import (
 from .db import Database
 
 
+class ClientMetadata(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    version: str = Field(min_length=1, max_length=32)
+    platform: str | None = Field(default=None, max_length=32)
+    build: str | None = Field(default=None, max_length=64)
+    device: str | None = Field(default=None, max_length=96)
+
+
 class HelloRequest(BaseModel):
     handshake_id: str | None = None
     client_nonce: str | None = None
     client_key: str | None = None
+    client: ClientMetadata
 
 
 class RegisterRequest(BaseModel):
-    username: str = Field(min_length=3, max_length=32)
-    password: str = Field(min_length=6, max_length=256)
+    uid: str | None = Field(default=None, min_length=3, max_length=32)
+    username: str | None = Field(default=None, min_length=3, max_length=32)
+    password_md5: str | None = Field(default=None, min_length=32, max_length=32)
+    password: str | None = Field(default=None, min_length=6, max_length=256)
+    nickname: str | None = Field(default=None, min_length=1, max_length=32)
     display_name: str | None = Field(default=None, max_length=32)
+    email: str = Field(min_length=3, max_length=254)
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    uid: str | None = Field(default=None, min_length=3, max_length=32)
+    username: str | None = Field(default=None, min_length=3, max_length=32)
+    password_md5: str | None = Field(default=None, min_length=32, max_length=32)
+    password: str | None = None
 
 
 class TokenRequest(BaseModel):
@@ -77,6 +93,17 @@ class DreamweaveApi:
             docs_url="/swagger",
             redoc_url="/redoc",
         )
+        if self.config.cors.enabled:
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origins=list(self.config.cors.allow_origins),
+                allow_origin_regex=self.config.cors.allow_origin_regex or None,
+                allow_credentials=self.config.cors.allow_credentials,
+                allow_methods=list(self.config.cors.allow_methods),
+                allow_headers=list(self.config.cors.allow_headers),
+                expose_headers=list(self.config.cors.expose_headers),
+                max_age=self.config.cors.max_age,
+            )
 
         @app.on_event("startup")
         def startup() -> None:
@@ -233,6 +260,11 @@ class DreamweaveApi:
                         "server_nonce": server_nonce,
                         "server_key": server_proof(self.config.security.server_secret, server_nonce),
                         "version": self.config.server.version,
+                        "minimum_client_version": self.config.version.minimum_client_version,
+                        "recommended_client_version": self.config.version.recommended_client_version,
+                        "api_revision": self.config.version.api_revision,
+                        "protocol_version": self.config.version.protocol_version,
+                        "client_metadata_required": True,
                         "motd": self.config.server.motd,
                     },
                 )
@@ -268,6 +300,7 @@ class DreamweaveApi:
                     "handshake_id": request.handshake_id,
                     "authenticated": True,
                     "encryption": "xor-sha256-session-key",
+                    "client": request.client.model_dump(exclude_none=True),
                 },
             )
 
@@ -275,8 +308,16 @@ class DreamweaveApi:
         def register(request: RegisterRequest) -> dict[str, Any]:
             if not self.config.status.allow_registration:
                 raise HTTPException(status_code=503, detail="registration is disabled")
+            if not (request.uid or request.username):
+                raise HTTPException(status_code=400, detail="uid is required")
+            password_md5, _ = password_credential(request.password_md5, request.password)
             try:
-                user = self.database.register_user(request.username, request.password, request.display_name)
+                user = self.database.register_user(
+                    uid=request.uid or request.username or "",
+                    password_md5=password_md5,
+                    nickname=request.nickname or request.display_name,
+                    email=request.email,
+                )
             except ValueError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
             return self.ok("api/register", {"user": user})
@@ -285,9 +326,13 @@ class DreamweaveApi:
         def login(request: LoginRequest, response: Response) -> dict[str, Any]:
             if not self.config.status.allow_login:
                 raise HTTPException(status_code=503, detail="login is disabled")
-            result = self.database.login_user(request.username, request.password)
+            identifier = request.uid or request.username or ""
+            if not identifier:
+                raise HTTPException(status_code=400, detail="uid is required")
+            password_md5, legacy_password = password_credential(request.password_md5, request.password)
+            result = self.database.login_user(identifier, password_md5, legacy_password)
             if result is None:
-                raise HTTPException(status_code=401, detail="username or password is invalid")
+                raise HTTPException(status_code=401, detail="uid or password is invalid")
             self.set_cookie(
                 response,
                 self.config.cookies.session_cookie,
@@ -387,6 +432,8 @@ class DreamweaveApi:
         return session
 
     def needs_client_auth(self, request: Request) -> bool:
+        if request.method.upper() == "OPTIONS":
+            return False
         path = request.url.path
         if not path.startswith("/api/"):
             return False
@@ -399,6 +446,7 @@ class DreamweaveApi:
         timestamp = request.headers.get("X-Dreamweave-Timestamp")
         nonce = request.headers.get("X-Dreamweave-Nonce")
         client_key = request.headers.get("X-Dreamweave-Key")
+        client_metadata = self.client_metadata_from_headers(request)
         if not handshake_id or not timestamp or not nonce or not client_key:
             raise HTTPException(status_code=401, detail="missing client authentication headers")
 
@@ -424,12 +472,41 @@ class DreamweaveApi:
             md5_hex(body),
             timestamp,
             nonce,
+            self.client_metadata_md5(client_metadata),
         )
         if not constant_time_equal(client_key, expected):
             raise HTTPException(status_code=401, detail="client request key check failed")
 
         request.state.handshake_id = handshake_id
         request.state.handshake_session = session
+        request.state.client_metadata = client_metadata
+
+    def client_metadata_from_headers(self, request: Request) -> dict[str, str]:
+        client_name = (request.headers.get("X-Dreamweave-Client-Name") or "").strip()
+        client_version = (request.headers.get("X-Dreamweave-Client-Version") or "").strip()
+        if not client_name or not client_version:
+            raise HTTPException(status_code=401, detail="missing client metadata headers")
+        metadata = {
+            "name": client_name,
+            "version": client_version,
+            "platform": (request.headers.get("X-Dreamweave-Client-Platform") or "").strip(),
+            "build": (request.headers.get("X-Dreamweave-Client-Build") or "").strip(),
+            "device": (request.headers.get("X-Dreamweave-Client-Device") or "").strip(),
+        }
+        return {key: value[:128] for key, value in metadata.items()}
+
+    @staticmethod
+    def client_metadata_md5(metadata: dict[str, str]) -> str:
+        payload = "\n".join(
+            [
+                metadata.get("name", ""),
+                metadata.get("version", ""),
+                metadata.get("platform", ""),
+                metadata.get("build", ""),
+                metadata.get("device", ""),
+            ]
+        )
+        return md5_hex(payload)
 
     def cleanup_handshakes(self) -> None:
         self.database.cleanup_handshakes()
@@ -442,6 +519,15 @@ class DreamweaveApi:
             return
         client_host = request.client.host if request.client else ""
         user_agent = request.headers.get("user-agent", "")
+        client_metadata = getattr(request.state, "client_metadata", None)
+        if client_metadata is None:
+            client_metadata = {
+                "name": request.headers.get("X-Dreamweave-Client-Name", ""),
+                "version": request.headers.get("X-Dreamweave-Client-Version", ""),
+                "platform": request.headers.get("X-Dreamweave-Client-Platform", ""),
+                "build": request.headers.get("X-Dreamweave-Client-Build", ""),
+                "device": request.headers.get("X-Dreamweave-Client-Device", ""),
+            }
         try:
             self.database.record_call_log(
                 route=path,
@@ -451,6 +537,11 @@ class DreamweaveApi:
                 duration_ms=(time.perf_counter() - started) * 1000,
                 client_host=client_host,
                 user_agent=user_agent,
+                client_name=str(client_metadata.get("name", "")),
+                client_version=str(client_metadata.get("version", "")),
+                client_platform=str(client_metadata.get("platform", "")),
+                client_build=str(client_metadata.get("build", "")),
+                client_device=str(client_metadata.get("device", "")),
             )
         except Exception:
             pass
@@ -552,3 +643,14 @@ def normalize_language(value: str) -> str:
         "ru-ru": "ru-RU",
     }
     return aliases.get(value.strip().lower(), value.strip() or "zh-CN")
+
+
+def password_credential(password_md5: str | None, password: str | None) -> tuple[str, str | None]:
+    if password_md5:
+        safe_md5 = password_md5.strip().lower()
+        if len(safe_md5) != 32 or any(char not in "0123456789abcdef" for char in safe_md5):
+            raise HTTPException(status_code=400, detail="password_md5 must be a 32-character hex MD5")
+        return safe_md5, password
+    if password:
+        return md5_hex(password), password
+    raise HTTPException(status_code=400, detail="password_md5 is required")
