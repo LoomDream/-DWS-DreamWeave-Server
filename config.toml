@@ -1,0 +1,53 @@
+[server]
+host = "0.0.0.0"
+port = 7777
+version = "0.1.0"
+motd = "Dreamweave alpha server"
+environment = "development"
+region = "local"
+server_name = "Dreamweave Alpha"
+
+[version]
+minimum_client_version = "0.1.0"
+recommended_client_version = "0.1.0"
+protocol_version = "2026.06"
+api_revision = "1"
+update_required = false
+download_url = ""
+release_notes_url = ""
+
+[security]
+# Development defaults only. Outside development, set non-sample values here
+# or provide DREAMWEAVE_SERVER_SECRET and DREAMWEAVE_DEVELOPER_SECRET.
+server_secret = "change-me-dreamweave-server-secret"
+developer_secret = "change-me-dreamweave-developer-secret"
+session_token_ttl_seconds = 86400
+handshake_ttl_seconds = 300
+
+[cookies]
+secure = false
+samesite = "lax"
+domain = ""
+handshake_cookie = "dw_handshake"
+session_cookie = "dw_session"
+
+[status]
+public_message = "Dreamweave server is online."
+maintenance = false
+maintenance_message = ""
+allow_registration = true
+allow_login = true
+allow_sync = true
+allow_content_download = true
+max_players = 100
+status_components = ["api", "database", "content", "auth"]
+
+[database]
+path = "dreamweave.sqlite3"
+
+[content]
+story_file = "content/story.json"
+
+[legal]
+terms_file = "content/legal/terms.md"
+privacy_file = "content/legal/privacy.md"

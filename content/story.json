@@ -1,0 +1,41 @@
+{
+  "version": "0.1.0",
+  "world": "Dreamweave",
+  "acts": [
+    {
+      "id": "act_001",
+      "title": "First Thread",
+      "summary": "The player wakes at the edge of a half-built city where memories behave like weather.",
+      "dialogues": [
+        {
+          "id": "dlg_weaver_intro",
+          "speaker": "Liora",
+          "lines": [
+            "You made it through the static.",
+            "Keep your anchor close. The city remembers strangers slowly."
+          ]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task_find_anchor",
+          "title": "Find Your Anchor",
+          "description": "Recover the anchor shard near the mirror gate.",
+          "objectives": [
+            {
+              "type": "collect",
+              "target": "anchor_shard",
+              "count": 1
+            }
+          ],
+          "rewards": {
+            "xp": 50,
+            "items": [
+              "thread_compass"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
