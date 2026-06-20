@@ -184,6 +184,7 @@ POST /api/content/story
 GET  /api/content/audio
 GET  /api/content/audio/{filename}
 POST /api/content/ack
+GET  /api/seed/{map_id}
 ```
 
 ## 用户数据
@@ -324,6 +325,30 @@ GET /api/content/audio/{filename}
 ```
 
 两个端点都需要正常的 `X-Dreamweave-*` 请求签名。`/api/content/audio` 返回可用音频列表；`/api/content/audio/{filename}` 以 `audio/wav` 流式返回文件。
+
+## 地图种子
+
+地图种子文件位于：
+
+```text
+./seed/map/
+```
+
+文件名从 1 开始递增：
+
+```text
+seed/map/1.txt
+seed/map/2.txt
+seed/map/3.txt
+```
+
+每个文件只保存一个种子码文本。客户端通过：
+
+```http
+GET /api/seed/{map_id}
+```
+
+获取用于 Perlin 地形生成的种子码。`map_id` 必须从 1 开始；服务端读取 `seed/map/<map_id>.txt`，返回 JSON，其中包含 `seed`、`md5`、`updated_at` 和 `algorithm = "perlin-terrain"`。该端点同样需要正常的 `X-Dreamweave-*` 请求签名。
 
 ## 管理面板
 

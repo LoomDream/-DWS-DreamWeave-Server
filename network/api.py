@@ -82,6 +82,7 @@ class DreamweaveApi:
             config.content.story_file,
             config.content.story_dir,
             config.content.audio_dir,
+            config.content.seed_dir,
             config.security.developer_secret,
         )
         self.started_at = int(time.time())
@@ -166,6 +167,7 @@ class DreamweaveApi:
             legal_terms_exists = self.config.legal.terms_file.exists()
             legal_privacy_exists = self.config.legal.privacy_file.exists()
             legal_eula_exists = self.config.legal.eula_file.exists()
+            seed_count = len(list(self.config.content.seed_dir.glob("*.txt"))) if self.config.content.seed_dir.exists() else 0
             degraded = not database_ok or not story_content_ok or not legal_terms_exists or not legal_privacy_exists or not legal_eula_exists
             return self.ok(
                 "api/status",
@@ -209,7 +211,9 @@ class DreamweaveApi:
                         "story_dir": str(self.config.content.story_dir),
                         "story_scene_count": story_scene_count,
                         "audio_dir": str(self.config.content.audio_dir),
-                        "story_audio_count": len(self.content.list_story_audio())
+                        "story_audio_count": len(self.content.list_story_audio()),
+                        "seed_dir": str(self.config.content.seed_dir),
+                        "map_seed_count": seed_count,
                     },
                     "legal": {
                         "terms_file_exists": legal_terms_exists,
@@ -397,6 +401,18 @@ class DreamweaveApi:
             if not constant_time_equal(request.client_key, expected):
                 raise HTTPException(status_code=401, detail="developer key check failed")
             return self.ok("api/content/ack", {"verified": True})
+
+        @app.get("/api/seed/{map_id}")
+        def map_seed(map_id: int) -> dict[str, Any]:
+            if map_id < 1:
+                raise HTTPException(status_code=400, detail="map id must start from 1")
+            try:
+                seed = self.content.read_map_seed(map_id)
+            except FileNotFoundError as exc:
+                raise HTTPException(status_code=404, detail="map seed does not exist") from exc
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            return self.ok(f"api/seed/{map_id}", seed)
 
         app.include_router(AdminPanel(self.config, self.database, self.content).router())
         return app

@@ -104,6 +104,7 @@ POST /api/content/story
 GET  /api/content/audio
 GET  /api/content/audio/{filename}
 POST /api/content/ack
+GET  /api/seed/{map_id}
 ```
 
 ## Данные пользователя
@@ -141,3 +142,26 @@ wav/story/*.wav
 ```
 
 После получения зашифрованного сюжета клиент должен расшифровать payload, проверить MD5 и подтвердить через `/api/content/ack`.
+
+## Seed карты
+
+Файлы seed карты находятся в:
+
+```text
+seed/map/
+```
+
+Имена файлов начинаются с `1.txt`:
+
+```text
+seed/map/1.txt
+seed/map/2.txt
+```
+
+Клиент получает seed через:
+
+```http
+GET /api/seed/{map_id}
+```
+
+Endpoint читает `seed/map/<map_id>.txt` и возвращает JSON с `seed`, `md5`, `updated_at` и `algorithm = "perlin-terrain"`. `map_id` начинается с 1. Требуется обычная подпись `X-Dreamweave-*`.

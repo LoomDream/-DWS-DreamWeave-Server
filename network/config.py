@@ -75,6 +75,7 @@ class ContentConfig:
     story_file: Path
     story_dir: Path
     audio_dir: Path
+    seed_dir: Path
 
 
 @dataclass(frozen=True)
@@ -208,6 +209,7 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
             story_file=_resolve_path(base_dir, str(content.get("story_file", "content/story.json"))),
             story_dir=_resolve_path(base_dir, str(content.get("story_dir", "story"))),
             audio_dir=_resolve_path(base_dir, str(content.get("audio_dir", "wav/story"))),
+            seed_dir=_resolve_path(base_dir, str(content.get("seed_dir", "seed/map"))),
         ),
         legal=LegalConfig(
             terms_file=_resolve_path(base_dir, str(legal.get("terms_file", "content/legal/terms.md"))),
