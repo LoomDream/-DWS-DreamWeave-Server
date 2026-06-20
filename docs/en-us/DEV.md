@@ -210,10 +210,23 @@ The server writes these cookies:
 
 Lookup priority:
 
-- Handshake session: `dw_handshake` cookie first, then `X-Dreamweave-Handshake`.
+- Handshake session: `X-Dreamweave-Handshake` header first, then `dw_handshake` cookie.
 - Login token: `dw_session` cookie first, then request body `token`.
 
 The request signature must still use the correct `handshake_id`. If the client sends the handshake through a cookie, the signature formula must use that same value.
+
+Handshake sessions and used request nonces are persisted to SQLite, so authentication no longer depends only on Python process memory.
+
+Cookie behavior is configurable in `config.toml`:
+
+```toml
+[cookies]
+secure = false
+samesite = "lax"
+domain = ""
+handshake_cookie = "dw_handshake"
+session_cookie = "dw_session"
+```
 
 ## Content Transfer
 

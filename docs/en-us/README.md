@@ -31,6 +31,7 @@ Edit `config.toml` before running the server, especially:
 [security]
 server_secret = "change-me-dreamweave-server-secret"
 developer_secret = "change-me-dreamweave-developer-secret"
+handshake_ttl_seconds = 300
 ```
 
 Start the server:
@@ -161,7 +162,18 @@ The server writes and prefers these cookies:
 - `dw_handshake`: handshake id used to identify the client handshake session.
 - `dw_session`: login session token used to identify the logged-in user.
 
-If a cookie is missing, the server falls back to `X-Dreamweave-Handshake` or the request body's `token` field.
+Handshake lookup prefers the `X-Dreamweave-Handshake` header and falls back to the cookie. Login-token lookup prefers the `dw_session` cookie and falls back to the request body's `token` field.
+
+Cookie behavior is configurable in `config.toml`:
+
+```toml
+[cookies]
+secure = false
+samesite = "lax"
+domain = ""
+handshake_cookie = "dw_handshake"
+session_cookie = "dw_session"
+```
 
 ## Database
 
@@ -177,6 +189,8 @@ Current tables:
 - `users`
 - `sessions`
 - `player_state`
+- `handshakes`
+- `handshake_nonces`
 
 ## Content
 

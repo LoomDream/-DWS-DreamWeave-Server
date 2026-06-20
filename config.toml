@@ -21,6 +21,14 @@ release_notes_url = ""
 server_secret = "change-me-dreamweave-server-secret"
 developer_secret = "change-me-dreamweave-developer-secret"
 session_token_ttl_seconds = 86400
+handshake_ttl_seconds = 300
+
+[cookies]
+secure = false
+samesite = "lax"
+domain = ""
+handshake_cookie = "dw_handshake"
+session_cookie = "dw_session"
 
 [status]
 public_message = "Dreamweave server is online."

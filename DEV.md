@@ -212,10 +212,23 @@ GET /api/legal/privacy
 
 读取优先级：
 
-- 握手会话：`dw_handshake` Cookie 优先，其次 `X-Dreamweave-Handshake` 请求头。
+- 握手会话：`X-Dreamweave-Handshake` 请求头优先，其次 `dw_handshake` Cookie。
 - 登录 token：`dw_session` Cookie 优先，其次请求体里的 `token` 字段。
 
 注意：请求签名仍然必须包含正确的 `handshake_id`。如果客户端使用 Cookie 传递握手 id，签名公式里的 `handshake_id` 也必须使用同一个值。
+
+握手会话和已使用的请求 nonce 会持久化到 SQLite，避免服务重启或多进程部署时只依赖 Python 进程内存。
+
+Cookie 行为可通过 `config.toml` 配置：
+
+```toml
+[cookies]
+secure = false
+samesite = "lax"
+domain = ""
+handshake_cookie = "dw_handshake"
+session_cookie = "dw_session"
+```
 
 ## 内容传输
 

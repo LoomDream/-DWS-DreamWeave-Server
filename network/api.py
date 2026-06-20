@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -21,15 +20,6 @@ from .crypto import (
     server_proof,
 )
 from .db import Database
-
-
-@dataclass
-class HandshakeSession:
-    server_nonce: str
-    client_nonce: str | None
-    session_key: bytes | None
-    created_at: int
-    request_nonces: set[str]
 
 
 class HelloRequest(BaseModel):
@@ -71,7 +61,6 @@ class DreamweaveApi:
         self.config = config
         self.database = Database(config.database.path, config.security.session_token_ttl_seconds)
         self.content = ContentStore(config.content.story_file, config.security.developer_secret)
-        self.handshakes: dict[str, HandshakeSession] = {}
         self.started_at = int(time.time())
 
     def app(self) -> FastAPI:
@@ -118,9 +107,8 @@ class DreamweaveApi:
         @app.get("/api/status")
         def status() -> dict[str, Any]:
             self.cleanup_handshakes()
-            authenticated_handshakes = sum(
-                1 for session in self.handshakes.values() if session.session_key is not None
-            )
+            handshake_counts = self.database.count_handshakes()
+            authenticated_handshakes = handshake_counts["authenticated"]
             database_ok = self.check_database()
             story_exists = self.config.content.story_file.exists()
             legal_terms_exists = self.config.legal.terms_file.exists()
@@ -171,7 +159,7 @@ class DreamweaveApi:
                         "privacy_file_exists": legal_privacy_exists,
                     },
                     "handshakes": {
-                        "total": len(self.handshakes),
+                        "total": handshake_counts["total"],
                         "authenticated": authenticated_handshakes,
                     },
                 },
@@ -191,14 +179,18 @@ class DreamweaveApi:
             if request.handshake_id is None:
                 handshake_id = new_nonce()
                 server_nonce = new_nonce()
-                self.handshakes[handshake_id] = HandshakeSession(
-                    server_nonce=server_nonce,
-                    client_nonce=None,
-                    session_key=None,
-                    created_at=int(time.time()),
-                    request_nonces=set(),
+                self.database.create_handshake(
+                    handshake_id,
+                    server_nonce,
+                    self.config.security.handshake_ttl_seconds,
                 )
-                self.set_cookie(response, "dw_handshake", handshake_id, max_age=300, httponly=False)
+                self.set_cookie(
+                    response,
+                    self.config.cookies.handshake_cookie,
+                    handshake_id,
+                    max_age=self.config.security.handshake_ttl_seconds,
+                    httponly=False,
+                )
                 return self.ok(
                     "api/hello",
                     {
@@ -216,19 +208,25 @@ class DreamweaveApi:
 
             expected = client_proof(
                 self.config.security.server_secret,
-                session.server_nonce,
+                session["server_nonce"],
                 request.client_nonce,
             )
             if not constant_time_equal(request.client_key, expected):
                 raise HTTPException(status_code=401, detail="client key check failed")
 
-            session.client_nonce = request.client_nonce
-            session.session_key = make_session_key(
+            session_key = make_session_key(
                 self.config.security.server_secret,
-                session.server_nonce,
+                session["server_nonce"],
                 request.client_nonce,
             )
-            self.set_cookie(response, "dw_handshake", request.handshake_id, max_age=300, httponly=False)
+            self.database.authenticate_handshake(request.handshake_id, request.client_nonce, session_key)
+            self.set_cookie(
+                response,
+                self.config.cookies.handshake_cookie,
+                request.handshake_id,
+                max_age=self.config.security.handshake_ttl_seconds,
+                httponly=False,
+            )
             return self.ok(
                 "api/hello",
                 {
@@ -257,7 +255,7 @@ class DreamweaveApi:
                 raise HTTPException(status_code=401, detail="username or password is invalid")
             self.set_cookie(
                 response,
-                "dw_session",
+                self.config.cookies.session_cookie,
                 str(result["token"]),
                 max_age=self.config.security.session_token_ttl_seconds,
                 httponly=True,
@@ -285,13 +283,13 @@ class DreamweaveApi:
             if not self.config.status.allow_content_download:
                 raise HTTPException(status_code=503, detail="content download is disabled")
             session = self.authenticated_session(http_request)
-            package = self.content.encrypted_story_package(session.session_key)
+            package = self.content.encrypted_story_package(session["session_key"])
             return self.ok("api/content/story", package)
 
         @app.post("/api/content/ack")
         def content_ack(request: ContentAckRequest, http_request: Request) -> dict[str, Any]:
             session = self.authenticated_session(http_request)
-            expected = developer_proof(self.config.security.developer_secret, session.session_key, request.md5)
+            expected = developer_proof(self.config.security.developer_secret, session["session_key"], request.md5)
             if not constant_time_equal(request.client_key, expected):
                 raise HTTPException(status_code=401, detail="developer key check failed")
             return self.ok("api/content/ack", {"verified": True})
@@ -305,26 +303,26 @@ class DreamweaveApi:
         return user
 
     def request_token(self, request: Request, fallback_token: str | None = None) -> str:
-        token = request.cookies.get("dw_session") or fallback_token
+        token = request.cookies.get(self.config.cookies.session_cookie) or fallback_token
         if not token:
             raise HTTPException(status_code=401, detail="login token is required")
         return token
 
-    def require_handshake(self, handshake_id: str) -> HandshakeSession:
-        session = self.handshakes.get(handshake_id)
+    def require_handshake(self, handshake_id: str) -> dict[str, Any]:
+        session = self.database.get_handshake(handshake_id)
         if session is None:
             raise HTTPException(status_code=404, detail="handshake does not exist or expired")
         return session
 
-    def require_authenticated_handshake(self, handshake_id: str) -> HandshakeSession:
+    def require_authenticated_handshake(self, handshake_id: str) -> dict[str, Any]:
         session = self.require_handshake(handshake_id)
-        if session.session_key is None:
+        if session["session_key"] is None:
             raise HTTPException(status_code=401, detail="handshake is not authenticated")
         return session
 
-    def authenticated_session(self, request: Request) -> HandshakeSession:
+    def authenticated_session(self, request: Request) -> dict[str, Any]:
         session = getattr(request.state, "handshake_session", None)
-        if session is None or session.session_key is None:
+        if session is None or session["session_key"] is None:
             raise HTTPException(status_code=401, detail="client authentication is required")
         return session
 
@@ -335,7 +333,9 @@ class DreamweaveApi:
         return path != "/api/hello"
 
     async def authenticate_request(self, request: Request) -> None:
-        handshake_id = request.cookies.get("dw_handshake") or request.headers.get("X-Dreamweave-Handshake")
+        header_handshake_id = request.headers.get("X-Dreamweave-Handshake")
+        cookie_handshake_id = request.cookies.get(self.config.cookies.handshake_cookie)
+        handshake_id = header_handshake_id or cookie_handshake_id
         timestamp = request.headers.get("X-Dreamweave-Timestamp")
         nonce = request.headers.get("X-Dreamweave-Nonce")
         client_key = request.headers.get("X-Dreamweave-Key")
@@ -351,13 +351,13 @@ class DreamweaveApi:
         if abs(now - request_time) > 300:
             raise HTTPException(status_code=401, detail="timestamp is outside the allowed window")
 
-        if nonce in session.request_nonces:
+        if not self.database.reserve_handshake_nonce(handshake_id, nonce):
             raise HTTPException(status_code=401, detail="request nonce has already been used")
 
         body = await request.body()
         expected = request_proof(
             self.config.security.server_secret,
-            session.session_key,
+            session["session_key"],
             handshake_id,
             request.method,
             request.url.path,
@@ -368,19 +368,11 @@ class DreamweaveApi:
         if not constant_time_equal(client_key, expected):
             raise HTTPException(status_code=401, detail="client request key check failed")
 
-        session.request_nonces.add(nonce)
         request.state.handshake_id = handshake_id
         request.state.handshake_session = session
 
     def cleanup_handshakes(self) -> None:
-        expires_before = int(time.time()) - 300
-        expired = [
-            handshake_id
-            for handshake_id, session in self.handshakes.items()
-            if session.created_at < expires_before
-        ]
-        for handshake_id in expired:
-            self.handshakes.pop(handshake_id, None)
+        self.database.cleanup_handshakes()
 
     def check_database(self) -> bool:
         try:
@@ -404,14 +396,15 @@ class DreamweaveApi:
             },
         )
 
-    @staticmethod
-    def set_cookie(response: Response, key: str, value: str, max_age: int, httponly: bool) -> None:
+    def set_cookie(self, response: Response, key: str, value: str, max_age: int, httponly: bool) -> None:
         response.set_cookie(
             key=key,
             value=value,
             max_age=max_age,
             httponly=httponly,
-            samesite="lax",
+            secure=self.config.cookies.secure,
+            samesite=self.config.cookies.samesite,
+            domain=self.config.cookies.domain or None,
         )
 
     @staticmethod

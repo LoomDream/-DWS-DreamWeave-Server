@@ -33,6 +33,7 @@ pip install -r requirements.txt
 [security]
 server_secret = "change-me-dreamweave-server-secret"
 developer_secret = "change-me-dreamweave-developer-secret"
+handshake_ttl_seconds = 300
 ```
 
 启动服务：
@@ -163,7 +164,18 @@ status_components = ["api", "database", "content", "auth"]
 - `dw_handshake`：握手 id，用于后续请求优先识别客户端握手会话。
 - `dw_session`：登录 session token，用于后续同步请求优先识别登录用户。
 
-如果 Cookie 不存在，服务端会回退读取 `X-Dreamweave-Handshake` 请求头或请求体里的 `token`。
+握手 id 读取优先级为 `X-Dreamweave-Handshake` 请求头优先，Cookie 回退。登录 token 读取优先级为 `dw_session` Cookie 优先，请求体 `token` 回退。
+
+Cookie 行为可通过 `config.toml` 配置：
+
+```toml
+[cookies]
+secure = false
+samesite = "lax"
+domain = ""
+handshake_cookie = "dw_handshake"
+session_cookie = "dw_session"
+```
 
 ## 数据库
 
@@ -179,6 +191,8 @@ path = "dreamweave.sqlite3"
 - `users`
 - `sessions`
 - `player_state`
+- `handshakes`
+- `handshake_nonces`
 
 ## 内容数据
 

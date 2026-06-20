@@ -32,6 +32,16 @@ class SecurityConfig:
     server_secret: str
     developer_secret: str
     session_token_ttl_seconds: int
+    handshake_ttl_seconds: int
+
+
+@dataclass(frozen=True)
+class CookieConfig:
+    secure: bool
+    samesite: str
+    domain: str
+    handshake_cookie: str
+    session_cookie: str
 
 
 @dataclass(frozen=True)
@@ -68,6 +78,7 @@ class AppConfig:
     server: ServerConfig
     version: VersionConfig
     security: SecurityConfig
+    cookies: CookieConfig
     database: DatabaseConfig
     content: ContentConfig
     legal: LegalConfig
@@ -84,6 +95,7 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
     server = raw.get("server", {})
     version = raw.get("version", {})
     security = raw.get("security", {})
+    cookies = raw.get("cookies", {})
     database = raw.get("database", {})
     content = raw.get("content", {})
     legal = raw.get("legal", {})
@@ -112,6 +124,14 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
             server_secret=str(security.get("server_secret", "")),
             developer_secret=str(security.get("developer_secret", "")),
             session_token_ttl_seconds=int(security.get("session_token_ttl_seconds", 86400)),
+            handshake_ttl_seconds=int(security.get("handshake_ttl_seconds", 300)),
+        ),
+        cookies=CookieConfig(
+            secure=bool(cookies.get("secure", False)),
+            samesite=str(cookies.get("samesite", "lax")),
+            domain=str(cookies.get("domain", "")),
+            handshake_cookie=str(cookies.get("handshake_cookie", "dw_handshake")),
+            session_cookie=str(cookies.get("session_cookie", "dw_session")),
         ),
         database=DatabaseConfig(
             path=_resolve_path(base_dir, str(database.get("path", "dreamweave.sqlite3"))),

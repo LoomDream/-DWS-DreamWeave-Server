@@ -58,6 +58,23 @@ class Database:
                     updated_at INTEGER NOT NULL,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 );
+
+                CREATE TABLE IF NOT EXISTS handshakes (
+                    handshake_id TEXT PRIMARY KEY,
+                    server_nonce TEXT NOT NULL,
+                    client_nonce TEXT,
+                    session_key_hex TEXT,
+                    created_at INTEGER NOT NULL,
+                    expires_at INTEGER NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS handshake_nonces (
+                    handshake_id TEXT NOT NULL,
+                    nonce TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    PRIMARY KEY (handshake_id, nonce),
+                    FOREIGN KEY (handshake_id) REFERENCES handshakes(handshake_id) ON DELETE CASCADE
+                );
                 """
             )
 
@@ -152,6 +169,86 @@ class Database:
             )
         clean_payload["updated_at"] = now
         return clean_payload
+
+    def create_handshake(self, handshake_id: str, server_nonce: str, ttl_seconds: int) -> None:
+        now = int(time.time())
+        with self.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO handshakes (handshake_id, server_nonce, created_at, expires_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (handshake_id, server_nonce, now, now + ttl_seconds),
+            )
+
+    def authenticate_handshake(self, handshake_id: str, client_nonce: str, session_key: bytes) -> None:
+        with self.connection() as conn:
+            conn.execute(
+                """
+                UPDATE handshakes
+                SET client_nonce = ?, session_key_hex = ?
+                WHERE handshake_id = ? AND expires_at > ?
+                """,
+                (client_nonce, session_key.hex(), handshake_id, int(time.time())),
+            )
+
+    def get_handshake(self, handshake_id: str) -> dict[str, Any] | None:
+        with self.connection() as conn:
+            row = conn.execute(
+                """
+                SELECT handshake_id, server_nonce, client_nonce, session_key_hex, created_at, expires_at
+                FROM handshakes
+                WHERE handshake_id = ? AND expires_at > ?
+                """,
+                (handshake_id, int(time.time())),
+            ).fetchone()
+        if row is None:
+            return None
+        session_key_hex = row["session_key_hex"]
+        return {
+            "handshake_id": str(row["handshake_id"]),
+            "server_nonce": str(row["server_nonce"]),
+            "client_nonce": str(row["client_nonce"]) if row["client_nonce"] is not None else None,
+            "session_key": bytes.fromhex(str(session_key_hex)) if session_key_hex else None,
+            "created_at": int(row["created_at"]),
+            "expires_at": int(row["expires_at"]),
+        }
+
+    def count_handshakes(self) -> dict[str, int]:
+        now = int(time.time())
+        with self.connection() as conn:
+            row = conn.execute(
+                """
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN session_key_hex IS NOT NULL THEN 1 ELSE 0 END) AS authenticated
+                FROM handshakes
+                WHERE expires_at > ?
+                """,
+                (now,),
+            ).fetchone()
+        return {
+            "total": int(row["total"] or 0),
+            "authenticated": int(row["authenticated"] or 0),
+        }
+
+    def reserve_handshake_nonce(self, handshake_id: str, nonce: str) -> bool:
+        try:
+            with self.connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO handshake_nonces (handshake_id, nonce, created_at)
+                    VALUES (?, ?, ?)
+                    """,
+                    (handshake_id, nonce, int(time.time())),
+                )
+        except sqlite3.IntegrityError:
+            return False
+        return True
+
+    def cleanup_handshakes(self) -> None:
+        with self.connection() as conn:
+            conn.execute("DELETE FROM handshakes WHERE expires_at <= ?", (int(time.time()),))
 
 
 def default_player_state() -> dict[str, Any]:
