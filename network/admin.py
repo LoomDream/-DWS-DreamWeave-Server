@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -169,7 +170,7 @@ class AdminPanel:
                     result = self.database.execute_admin_sql(request.sql, self.config.admin.max_sql_rows)
                 else:
                     result = self.database.query_readonly(request.sql, self.config.admin.max_sql_rows)
-            except ValueError as exc:
+            except (ValueError, sqlite3.Error) as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             return {"ok": True, "payload": result}
 

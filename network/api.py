@@ -477,11 +477,20 @@ class DreamweaveApi:
     def resolve_legal_document(self, kind: str, lang: str | None) -> tuple[Any, str]:
         directory = self.config.legal.terms_dir if kind == "terms" else self.config.legal.privacy_dir
         legacy_path = self.config.legal.terms_file if kind == "terms" else self.config.legal.privacy_file
+        allowed_languages = list(
+            dict.fromkeys(
+                [normalize_language(self.config.legal.default_language)]
+                + [normalize_language(item) for item in self.config.legal.fallback_languages]
+            )
+        )
         requested = normalize_language(lang or self.config.legal.default_language)
-        candidates = [requested]
-        candidates.extend(normalize_language(item) for item in self.config.legal.fallback_languages)
+        candidates = [requested] if requested in allowed_languages else [allowed_languages[0]]
+        candidates.extend(allowed_languages)
+        root = directory.resolve()
         for language in dict.fromkeys(candidates):
-            path = directory / f"{language}.md"
+            path = (directory / f"{language}.md").resolve()
+            if not _is_relative_to(path, root):
+                continue
             if path.exists():
                 return path, language
         return legacy_path, self.config.legal.default_language
@@ -503,6 +512,14 @@ class DreamweaveApi:
 
 def create_app(config: AppConfig) -> FastAPI:
     return DreamweaveApi(config).app()
+
+
+def _is_relative_to(path: Any, root: Any) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
 
 
 def normalize_language(value: str) -> str:
