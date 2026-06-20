@@ -113,6 +113,7 @@ GET  /api/version
 GET  /api/status
 GET  /api/legal/terms
 GET  /api/legal/privacy
+GET  /api/legal/eula
 POST /api/register
 POST /api/login
 POST /api/sync/get

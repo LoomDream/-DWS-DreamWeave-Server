@@ -61,7 +61,9 @@ audio_dir = "wav/story"
 [legal]
 terms_file = "content/legal/terms.md"
 privacy_file = "content/legal/privacy.md"
+eula_file = "content/legal/eula.md"
 terms_dir = "content/legal/terms"
 privacy_dir = "content/legal/privacy"
+eula_dir = "content/legal/eula"
 default_language = "zh-CN"
 fallback_languages = ["zh-CN", "en-US", "ja-JP", "ru-RU"]

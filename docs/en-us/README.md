@@ -121,6 +121,7 @@ GET  /api/version
 GET  /api/status
 GET  /api/legal/terms
 GET  /api/legal/privacy
+GET  /api/legal/eula
 POST /api/register
 POST /api/login
 POST /api/sync/get
@@ -144,7 +145,7 @@ See `docs/en-us/DEV.md` for the full handshake flow and request-signing formula.
 
 `GET /api/status` returns non-sensitive server health information such as server version, uptime, database availability, story file availability, and active handshake counts.
 
-`GET /api/legal/terms` and `GET /api/legal/privacy` return the terms of service and privacy policy as Markdown content.
+`GET /api/legal/terms`, `GET /api/legal/privacy`, and `GET /api/legal/eula` return the terms of service, privacy policy, and EULA as Markdown content.
 
 `GET /api/version` and `GET /api/status` are controlled by `config.toml`, and every API response is JSON.
 
@@ -265,6 +266,18 @@ allow_content_download = true
 max_players = 100
 status_components = ["api", "database", "content", "auth"]
 ```
+
+## Legal Documents
+
+Clients can fetch Markdown legal documents from:
+
+```text
+GET /api/legal/terms
+GET /api/legal/privacy
+GET /api/legal/eula
+```
+
+`/api/legal/eula` returns the End User License Agreement, covering source-code license boundaries, official content rights, private-server restrictions, anti-reverse-engineering rules, authentication bypass restrictions, and anti-cheat rules. Paths are configured in `[legal]` through `terms_file`, `privacy_file`, `eula_file`, `terms_dir`, `privacy_dir`, and `eula_dir`.
 
 ## Cookies
 

@@ -240,6 +240,7 @@ GET  /api/version
 GET  /api/status
 GET  /api/legal/terms
 GET  /api/legal/privacy
+GET  /api/legal/eula
 POST /api/register
 POST /api/login
 POST /api/sync/get
@@ -302,11 +303,12 @@ This endpoint still requires normal `X-Dreamweave-*` request signing.
 
 ## Legal Endpoints
 
-These endpoints return Markdown legal documents:
+These endpoints return Markdown legal documents, including the EULA:
 
 ```text
 GET /api/legal/terms
 GET /api/legal/privacy
+GET /api/legal/eula
 ```
 
 Response payload:
@@ -320,7 +322,16 @@ Response payload:
 }
 ```
 
-The file paths are configured through `[legal]` in `config.toml`.
+The file paths are configured through `[legal]` in `config.toml`:
+
+```toml
+terms_file = "content/legal/terms.md"
+privacy_file = "content/legal/privacy.md"
+eula_file = "content/legal/eula.md"
+terms_dir = "content/legal/terms"
+privacy_dir = "content/legal/privacy"
+eula_dir = "content/legal/eula"
+```
 
 ## Cookie Storage
 
