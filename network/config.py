@@ -61,12 +61,18 @@ class DatabaseConfig:
 @dataclass(frozen=True)
 class ContentConfig:
     story_file: Path
+    story_dir: Path
+    audio_dir: Path
 
 
 @dataclass(frozen=True)
 class LegalConfig:
     terms_file: Path
     privacy_file: Path
+    terms_dir: Path
+    privacy_dir: Path
+    default_language: str
+    fallback_languages: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -161,10 +167,16 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
         ),
         content=ContentConfig(
             story_file=_resolve_path(base_dir, str(content.get("story_file", "content/story.json"))),
+            story_dir=_resolve_path(base_dir, str(content.get("story_dir", "story"))),
+            audio_dir=_resolve_path(base_dir, str(content.get("audio_dir", "wav/story"))),
         ),
         legal=LegalConfig(
             terms_file=_resolve_path(base_dir, str(legal.get("terms_file", "content/legal/terms.md"))),
             privacy_file=_resolve_path(base_dir, str(legal.get("privacy_file", "content/legal/privacy.md"))),
+            terms_dir=_resolve_path(base_dir, str(legal.get("terms_dir", "content/legal/terms"))),
+            privacy_dir=_resolve_path(base_dir, str(legal.get("privacy_dir", "content/legal/privacy"))),
+            default_language=str(legal.get("default_language", "zh-CN")),
+            fallback_languages=tuple(str(lang) for lang in legal.get("fallback_languages", ["zh-CN", "en-US", "ja-JP", "ru-RU"])),
         ),
         status=StatusConfig(
             public_message=str(status.get("public_message", "")),

@@ -55,7 +55,13 @@ path = "dreamweave.sqlite3"
 
 [content]
 story_file = "content/story.json"
+story_dir = "story"
+audio_dir = "wav/story"
 
 [legal]
 terms_file = "content/legal/terms.md"
 privacy_file = "content/legal/privacy.md"
+terms_dir = "content/legal/terms"
+privacy_dir = "content/legal/privacy"
+default_language = "zh-CN"
+fallback_languages = ["zh-CN", "en-US", "ja-JP", "ru-RU"]

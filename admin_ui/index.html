@@ -3,139 +3,464 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dreamweave Admin</title>
+  <title>Dreamweave 管理面板</title>
   <style>
-    :root { color-scheme: light; --bg:#f6f7fb; --panel:#fff; --text:#182033; --muted:#65708a; --line:#d9deea; --accent:#1d6fd6; --bad:#b42318; --ok:#067647; }
+    :root {
+      color-scheme: light;
+      --bg: #f4f6fa;
+      --panel: #ffffff;
+      --panel-2: #f9fbff;
+      --text: #162033;
+      --muted: #667085;
+      --line: #d7deea;
+      --accent: #1867c9;
+      --accent-soft: #e8f1ff;
+      --ok: #067647;
+      --bad: #b42318;
+      --warn: #b54708;
+    }
     * { box-sizing: border-box; }
-    body { margin: 0; font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
-    header { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
-    h1 { margin: 0; font-size: 18px; }
-    main { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 56px); }
-    nav { border-right: 1px solid var(--line); background: var(--panel); padding: 14px; }
-    nav button { width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); padding: 10px 12px; border-radius: 6px; cursor: pointer; }
-    nav button.active, nav button:hover { background: #eaf2ff; color: var(--accent); }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 18px; font-weight: 700; }
+    h2 { margin: 0 0 12px; font-size: 16px; }
+    h3 { margin: 0 0 8px; font-size: 14px; }
+    main { display: grid; grid-template-columns: 230px 1fr; min-height: calc(100vh - 56px); }
+    nav { padding: 14px; background: var(--panel); border-right: 1px solid var(--line); }
+    nav button {
+      width: 100%;
+      margin-bottom: 6px;
+      border: 0;
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+    }
+    nav button.active, nav button:hover { background: var(--accent-soft); color: var(--accent); }
     section { display: none; padding: 18px; }
     section.active { display: block; }
     .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .layout-2 { display: grid; grid-template-columns: 320px 1fr; gap: 12px; align-items: start; }
     .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+    .panel { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
     .muted { color: var(--muted); }
-    input, textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; background: #fff; color: var(--text); }
-    textarea { min-height: 260px; font-family: ui-monospace, Consolas, monospace; }
-    button.primary { border: 0; background: var(--accent); color: white; border-radius: 6px; padding: 9px 12px; cursor: pointer; }
-    button.secondary { border: 1px solid var(--line); background: #fff; color: var(--text); border-radius: 6px; padding: 8px 11px; cursor: pointer; }
-    table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); }
-    th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
-    th { background: #f0f3f9; }
-    pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
-    .status { font-weight: 600; }
+    .status { font-weight: 700; }
     .status.ok { color: var(--ok); }
     .status.bad { color: var(--bad); }
+    .status.warn { color: var(--warn); }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+    }
+    textarea { min-height: 260px; font-family: ui-monospace, Consolas, monospace; resize: vertical; }
+    .small-input { width: 110px; }
+    .medium-input { width: 180px; }
+    button.primary, button.secondary, button.danger {
+      border-radius: 6px;
+      padding: 8px 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button.primary { border: 0; background: var(--accent); color: #fff; }
+    button.secondary { border: 1px solid var(--line); background: #fff; color: var(--text); }
+    button.danger { border: 1px solid #f3b5ad; background: #fff5f3; color: var(--bad); }
+    table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #eef2f8; font-weight: 700; }
+    pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; }
+    .list { display: grid; gap: 8px; }
+    .list button { width: 100%; text-align: left; }
+    .scene-item { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 10px; cursor: pointer; }
+    .scene-item.active { border-color: var(--accent); background: var(--accent-soft); }
+    .message { min-height: 20px; margin-top: 8px; }
+    .hidden { display: none; }
+    @media (max-width: 900px) {
+      main, .layout-2 { grid-template-columns: 1fr; }
+      nav { border-right: 0; border-bottom: 1px solid var(--line); }
+      header { height: auto; min-height: 56px; align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>Dreamweave Admin</h1>
-    <div id="authState" class="muted">未认证</div>
+    <h1>Dreamweave 管理面板</h1>
+    <div id="authState" class="status warn">未验证</div>
   </header>
   <main>
     <nav>
       <button data-tab="dashboard" class="active">概览</button>
-      <button data-tab="endpoints">端点</button>
+      <button data-tab="endpoints">端点测试</button>
       <button data-tab="logs">调用日志</button>
-      <button data-tab="story">剧情</button>
-      <button data-tab="sql">SQL</button>
+      <button data-tab="stories">剧情管理</button>
+      <button data-tab="sql">SQL 管理</button>
     </nav>
     <div>
       <section id="dashboard" class="active">
         <div class="card">
+          <h2>Token 验证</h2>
           <div class="toolbar">
             <input id="token" type="password" placeholder="Admin Token">
             <button class="primary" onclick="login()">验证</button>
+            <button class="secondary" onclick="loadAll()">刷新全部</button>
           </div>
-          <div id="loginMessage" class="muted"></div>
+          <div id="loginMessage" class="message muted"></div>
         </div>
         <div id="meta" class="grid" style="margin-top:12px"></div>
       </section>
-      <section id="endpoints"><div class="toolbar"><button class="secondary" onclick="loadEndpoints()">刷新</button></div><div id="endpointsTable"></div></section>
-      <section id="logs"><div class="toolbar"><button class="secondary" onclick="loadLogs()">刷新</button></div><div id="logsTable"></div></section>
-      <section id="story">
-        <div class="toolbar"><button class="secondary" onclick="loadStory()">读取</button><button class="primary" onclick="saveStory()">保存</button></div>
-        <textarea id="storyText"></textarea>
-        <div id="storyMeta" class="muted"></div>
-      </section>
-      <section id="sql">
-        <div class="grid">
-          <div class="card"><div class="toolbar"><button class="secondary" onclick="loadTables()">刷新表</button></div><div id="tables"></div></div>
+
+      <section id="endpoints">
+        <div class="layout-2">
           <div class="card">
-            <textarea id="sqlText">SELECT name FROM sqlite_master WHERE type = 'table'</textarea>
-            <div class="toolbar"><button class="primary" onclick="runSql()">查询</button></div>
+            <h2>可用端点</h2>
+            <div class="toolbar"><button class="secondary" onclick="loadEndpoints()">刷新</button></div>
+            <div id="endpointList" class="list"></div>
+          </div>
+          <div class="card">
+            <h2>端点测试</h2>
+            <div class="toolbar">
+              <select id="testMethod" class="small-input">
+                <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
+              </select>
+              <input id="testPath" class="medium-input" placeholder="/admin/api/meta">
+              <button class="primary" onclick="runEndpointTest()">发送</button>
+            </div>
+            <label class="muted">Headers JSON</label>
+            <textarea id="testHeaders" style="min-height:90px">{}</textarea>
+            <label class="muted">Body JSON / 文本</label>
+            <textarea id="testBody" style="min-height:130px"></textarea>
+            <div id="endpointDetail" class="panel" style="margin-top:12px"></div>
+            <h3 style="margin-top:12px">返回结果</h3>
+            <pre id="testResult" class="panel"></pre>
           </div>
         </div>
-        <div id="sqlResult" style="margin-top:12px"></div>
+      </section>
+
+      <section id="logs">
+        <div class="toolbar">
+          <button class="secondary" onclick="loadLogs()">刷新</button>
+          <input id="logLimit" class="small-input" type="number" value="100" min="1" max="500">
+        </div>
+        <div id="logsTable"></div>
+      </section>
+
+      <section id="stories">
+        <div class="layout-2">
+          <div class="card">
+            <h2>多剧情文件</h2>
+            <div class="toolbar">
+              <button class="secondary" onclick="loadScenes()">刷新</button>
+            </div>
+            <div class="grid" style="grid-template-columns: 1fr 1fr">
+              <input id="newChapter" type="number" min="1" value="1" placeholder="章">
+              <input id="newAct" type="number" min="1" value="1" placeholder="幕">
+            </div>
+            <input id="newChapterTitle" style="margin-top:8px" placeholder="章节名">
+            <input id="newSceneTitle" style="margin-top:8px" placeholder="幕名">
+            <div class="toolbar" style="margin-top:8px">
+              <button class="primary" onclick="createScene()">创建剧情</button>
+            </div>
+            <div id="sceneList" class="list"></div>
+          </div>
+          <div class="card">
+            <h2 id="sceneEditorTitle">剧情编辑</h2>
+            <div class="toolbar">
+              <button class="primary" onclick="saveScene()">保存当前剧情</button>
+              <button class="secondary" onclick="formatSceneJson()">格式化 JSON</button>
+            </div>
+            <textarea id="sceneText"></textarea>
+            <div id="sceneMessage" class="message muted"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="sql">
+        <div class="layout-2">
+          <div class="card">
+            <h2>数据库表</h2>
+            <div class="toolbar"><button class="secondary" onclick="loadTables()">刷新</button></div>
+            <div id="tables" class="list"></div>
+          </div>
+          <div class="card">
+            <h2 id="tableTitle">表数据</h2>
+            <div class="toolbar">
+              <input id="rowLimit" class="small-input" type="number" min="1" max="500" value="100">
+              <input id="rowOffset" class="small-input" type="number" min="0" value="0">
+              <button class="secondary" onclick="loadSelectedTable()">读取</button>
+            </div>
+            <div id="schemaView" style="margin-bottom:12px"></div>
+            <div id="rowView"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h2>SQL 执行器</h2>
+          <textarea id="sqlText">SELECT name FROM sqlite_master WHERE type = 'table'</textarea>
+          <div class="toolbar">
+            <button class="primary" onclick="runSql(false)">只读查询</button>
+            <button class="danger" onclick="runSql(true)">执行写入</button>
+          </div>
+          <div id="sqlResult"></div>
+        </div>
       </section>
     </div>
   </main>
+
   <script>
     let token = localStorage.getItem('dw_admin_token') || '';
+    let endpoints = [];
+    let selectedScene = '';
+    let selectedTable = '';
+
     document.getElementById('token').value = token;
-    const tabs = document.querySelectorAll('nav button');
-    tabs.forEach(btn => btn.addEventListener('click', () => {
-      tabs.forEach(item => item.classList.remove('active'));
-      document.querySelectorAll('section').forEach(item => item.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(btn.dataset.tab).classList.add('active');
-    }));
-    function headers() { return {'Content-Type':'application/json', 'X-Admin-Token': token}; }
+    document.querySelectorAll('nav button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('nav button').forEach(item => item.classList.remove('active'));
+        document.querySelectorAll('section').forEach(item => item.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    function headers() { return {'Content-Type': 'application/json', 'X-Admin-Token': token}; }
+
     async function api(path, options = {}) {
       const response = await fetch(path, {...options, headers: {...headers(), ...(options.headers || {})}});
       const data = await response.json();
       if (!response.ok || data.ok === false) throw new Error(data.detail || data.error?.message || 'request failed');
       return data.payload;
     }
+
     async function login() {
       token = document.getElementById('token').value.trim();
       try {
-        const payload = await api('/admin/api/auth', {method:'POST', body: JSON.stringify({token})});
+        const payload = await api('/admin/api/auth', {method: 'POST', body: JSON.stringify({token})});
         localStorage.setItem('dw_admin_token', token);
         document.cookie = 'dw_admin_token=' + encodeURIComponent(token) + '; SameSite=Lax; Path=/';
-        document.getElementById('authState').textContent = '已认证';
-        document.getElementById('authState').className = 'status ok';
-        document.getElementById('loginMessage').textContent = 'Token valid';
+        setAuth(true, '已验证');
         renderMeta(payload);
+        await loadAll();
       } catch (error) {
-        document.getElementById('authState').textContent = '认证失败';
-        document.getElementById('authState').className = 'status bad';
+        setAuth(false, '验证失败');
         document.getElementById('loginMessage').textContent = error.message;
       }
     }
+
+    function setAuth(ok, text) {
+      const node = document.getElementById('authState');
+      node.textContent = text;
+      node.className = 'status ' + (ok ? 'ok' : 'bad');
+      document.getElementById('loginMessage').textContent = ok ? 'Token valid' : '';
+    }
+
+    async function loadAll() {
+      await Promise.allSettled([loadMeta(), loadEndpoints(), loadLogs(), loadScenes(), loadTables()]);
+    }
+
+    async function loadMeta() {
+      renderMeta(await api('/admin/api/meta'));
+    }
+
     function renderMeta(meta) {
-      document.getElementById('meta').innerHTML = Object.entries(meta).map(([k,v]) => `<div class="card"><div class="muted">${k}</div><strong>${v}</strong></div>`).join('');
+      document.getElementById('meta').innerHTML = Object.entries(meta)
+        .map(([k, v]) => `<div class="card"><div class="muted">${escapeHtml(k)}</div><strong>${escapeHtml(String(v))}</strong></div>`)
+        .join('');
     }
+
+    async function loadEndpoints() {
+      endpoints = (await api('/admin/api/endpoints')).endpoints;
+      document.getElementById('endpointList').innerHTML = endpoints.map((item, index) => `
+        <div class="scene-item" onclick="selectEndpoint(${index})">
+          <strong>${escapeHtml(item.method)} ${escapeHtml(item.path)}</strong>
+          <div class="muted">${escapeHtml(item.auth)}</div>
+        </div>
+      `).join('');
+      if (endpoints.length && !document.getElementById('testPath').value) selectEndpoint(0);
+    }
+
+    function selectEndpoint(index) {
+      const item = endpoints[index];
+      document.getElementById('testMethod').value = item.method;
+      document.getElementById('testPath').value = item.path.replace(/\{[^}]+\}/g, '1');
+      document.getElementById('endpointDetail').innerHTML = `
+        <strong>${escapeHtml(item.method)} ${escapeHtml(item.path)}</strong>
+        <div>鉴权：${escapeHtml(item.auth)}</div>
+        <div class="muted">${escapeHtml(item.description || '')}</div>
+      `;
+    }
+
+    async function runEndpointTest() {
+      try {
+        const rawHeaders = document.getElementById('testHeaders').value.trim() || '{}';
+        const rawBody = document.getElementById('testBody').value.trim();
+        const method = document.getElementById('testMethod').value;
+        const headers = {...JSON.parse(rawHeaders)};
+        headers['X-Admin-Token'] = headers['X-Admin-Token'] || token;
+        if (rawBody && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+        const response = await fetch(document.getElementById('testPath').value, {
+          method,
+          headers,
+          body: ['GET', 'HEAD'].includes(method) ? undefined : rawBody,
+        });
+        const text = await response.text();
+        let body;
+        try { body = JSON.parse(text); } catch (_) { body = text; }
+        document.getElementById('testResult').textContent = JSON.stringify({
+          status_code: response.status,
+          headers: Object.fromEntries(response.headers.entries()),
+          body,
+        }, null, 2);
+      } catch (error) {
+        document.getElementById('testResult').textContent = error.message;
+      }
+    }
+
+    async function loadLogs() {
+      const limit = document.getElementById('logLimit').value || 100;
+      document.getElementById('logsTable').innerHTML = table((await api('/admin/api/logs?limit=' + encodeURIComponent(limit))).logs);
+    }
+
+    async function loadScenes() {
+      const payload = await api('/admin/api/story/scenes');
+      document.getElementById('sceneList').innerHTML = payload.scenes.map(scene => `
+        <div class="scene-item ${scene.file === selectedScene ? 'active' : ''}" onclick="loadScene('${escapeAttr(scene.file)}')">
+          <strong>${escapeHtml(scene.file)}</strong>
+          <div>${escapeHtml(scene.meta.chapter_title)} / ${escapeHtml(scene.meta.scene_title)}</div>
+          <div class="muted">md5=${escapeHtml(scene.md5)}</div>
+        </div>
+      `).join('') || '<div class="muted">暂无剧情文件</div>';
+    }
+
+    async function createScene() {
+      const payload = await api('/admin/api/story/scenes', {
+        method: 'POST',
+        body: JSON.stringify({
+          chapter: Number(document.getElementById('newChapter').value || 1),
+          act: Number(document.getElementById('newAct').value || 1),
+          chapter_title: document.getElementById('newChapterTitle').value,
+          scene_title: document.getElementById('newSceneTitle').value,
+        }),
+      });
+      selectedScene = payload.file;
+      document.getElementById('sceneText').value = JSON.stringify(payload.content, null, 2);
+      document.getElementById('sceneEditorTitle').textContent = '剧情编辑：' + payload.file;
+      document.getElementById('sceneMessage').textContent = '已创建 ' + payload.path;
+      await loadScenes();
+    }
+
+    async function loadScene(file) {
+      selectedScene = file;
+      const payload = await api('/admin/api/story/scenes/' + encodeURIComponent(file));
+      document.getElementById('sceneText').value = JSON.stringify(payload.content, null, 2);
+      document.getElementById('sceneEditorTitle').textContent = '剧情编辑：' + payload.file;
+      document.getElementById('sceneMessage').textContent = payload.path + ' md5=' + payload.md5;
+      await loadScenes();
+    }
+
+    async function saveScene() {
+      if (!selectedScene) throw new Error('请先选择剧情文件');
+      const content = JSON.parse(document.getElementById('sceneText').value);
+      const payload = await api('/admin/api/story/scenes/' + encodeURIComponent(selectedScene), {
+        method: 'PUT',
+        body: JSON.stringify({content}),
+      });
+      document.getElementById('sceneMessage').textContent = '已保存 ' + payload.path + ' md5=' + payload.md5;
+      await loadScenes();
+    }
+
+    function formatSceneJson() {
+      document.getElementById('sceneText').value = JSON.stringify(JSON.parse(document.getElementById('sceneText').value), null, 2);
+    }
+
+    async function loadTables() {
+      const payload = await api('/admin/api/sql/tables');
+      document.getElementById('tables').innerHTML = payload.tables.map(name => `
+        <button class="secondary" onclick="selectTable('${escapeAttr(name)}')">${escapeHtml(name)}</button>
+      `).join('') || '<div class="muted">暂无表</div>';
+    }
+
+    async function selectTable(name) {
+      selectedTable = name;
+      await loadSelectedTable();
+    }
+
+    async function loadSelectedTable() {
+      if (!selectedTable) return;
+      document.getElementById('tableTitle').textContent = '表数据：' + selectedTable;
+      const limit = document.getElementById('rowLimit').value || 100;
+      const offset = document.getElementById('rowOffset').value || 0;
+      const [schema, rows] = await Promise.all([
+        api('/admin/api/sql/tables/' + encodeURIComponent(selectedTable) + '/schema'),
+        api('/admin/api/sql/tables/' + encodeURIComponent(selectedTable) + '/rows?limit=' + encodeURIComponent(limit) + '&offset=' + encodeURIComponent(offset)),
+      ]);
+      document.getElementById('schemaView').innerHTML = table(schema.columns);
+      document.getElementById('rowView').innerHTML = table(rowsToObjects(rows));
+    }
+
+    async function runSql(write) {
+      try {
+        const payload = await api('/admin/api/sql/query', {
+          method: 'POST',
+          body: JSON.stringify({sql: document.getElementById('sqlText').value, write}),
+        });
+        const rows = rowsToObjects(payload);
+        document.getElementById('sqlResult').innerHTML = rows.length ? table(rows) : `<div class="panel">affected_rows=${payload.affected_rows ?? 0}</div>`;
+        await loadTables();
+      } catch (error) {
+        document.getElementById('sqlResult').innerHTML = `<div class="panel status bad">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    function rowsToObjects(payload) {
+      return (payload.rows || []).map(row => Object.fromEntries((payload.columns || []).map((col, i) => [col, row[i]])));
+    }
+
     function table(rows) {
-      if (!rows.length) return '<div class="card muted">No rows</div>';
+      if (!rows || !rows.length) return '<div class="panel muted">No rows</div>';
       const cols = Object.keys(rows[0]);
-      return `<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td><pre>${escapeHtml(String(r[c] ?? ''))}</pre></td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      return `<table><thead><tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${
+        rows.map(row => `<tr>${cols.map(c => `<td><pre>${escapeHtml(formatCell(row[c]))}</pre></td>`).join('')}</tr>`).join('')
+      }</tbody></table>`;
     }
-    function escapeHtml(text) { return text.replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
-    async function loadEndpoints() { document.getElementById('endpointsTable').innerHTML = table((await api('/admin/api/endpoints')).endpoints); }
-    async function loadLogs() { document.getElementById('logsTable').innerHTML = table((await api('/admin/api/logs?limit=100')).logs); }
-    async function loadStory() {
-      const payload = await api('/admin/api/story');
-      document.getElementById('storyText').value = JSON.stringify(payload.content, null, 2);
-      document.getElementById('storyMeta').textContent = `${payload.path} md5=${payload.md5}`;
+
+    function parseMaybeJson(text) {
+      try { return JSON.parse(text); } catch (_) { return text; }
     }
-    async function saveStory() {
-      const content = JSON.parse(document.getElementById('storyText').value);
-      const payload = await api('/admin/api/story', {method:'POST', body: JSON.stringify({content})});
-      document.getElementById('storyMeta').textContent = `saved: ${payload.path}`;
+
+    function formatCell(value) {
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'object') return JSON.stringify(value);
+      return String(value);
     }
-    async function loadTables() { document.getElementById('tables').innerHTML = (await api('/admin/api/sql/tables')).tables.map(t => `<div>${escapeHtml(t)}</div>`).join(''); }
-    async function runSql() {
-      const payload = await api('/admin/api/sql/query', {method:'POST', body: JSON.stringify({sql: document.getElementById('sqlText').value})});
-      const rows = payload.rows.map(row => Object.fromEntries(payload.columns.map((col, i) => [col, row[i]])));
-      document.getElementById('sqlResult').innerHTML = table(rows);
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, ch => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[ch]));
     }
+
+    function escapeAttr(text) {
+      return escapeHtml(String(text)).replace(/`/g, '&#96;');
+    }
+
     if (token) login();
   </script>
 </body>

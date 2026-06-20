@@ -43,11 +43,99 @@ GET  /admin/api/endpoints
 GET  /admin/api/logs
 GET  /admin/api/story
 POST /admin/api/story
+GET  /admin/api/story/scenes
+POST /admin/api/story/scenes
+GET  /admin/api/story/scenes/{filename}
+PUT  /admin/api/story/scenes/{filename}
 GET  /admin/api/sql/tables
+GET  /admin/api/sql/tables/{table}/schema
+GET  /admin/api/sql/tables/{table}/rows
 POST /admin/api/sql/query
 ```
 
-`/admin/api/sql/query` only allows read-only statements: `SELECT`, `WITH`, `PRAGMA`. Maximum returned rows are controlled by `admin.max_sql_rows` in `config.toml`.
+`/admin/api/sql/query` defaults to read-only statements: `SELECT`, `WITH`, `PRAGMA`. Set `write=true` to run one write statement. Multi-statement SQL is rejected. Maximum returned rows are controlled by `admin.max_sql_rows` in `config.toml`.
+
+The panel also includes endpoint details/testing, call logs, visual table/schema browsing, paginated table rows, and multi-scene story editing.
+
+## Multi-Scene Story Files
+
+Story directory:
+
+```toml
+[content]
+story_file = "content/story.json"
+story_dir = "story"
+audio_dir = "wav/story"
+```
+
+Files use this pattern:
+
+```text
+./story/<chapter>-<act>.json
+```
+
+Example JSON:
+
+```json
+{
+  "meta": {
+    "chapter": 1,
+    "act": 1,
+    "chapter_title": "Chapter One",
+    "scene_title": "Scene One"
+  },
+  "characters": [],
+  "backgrounds": [],
+  "audio": [
+    {
+      "id": "intro_bgm",
+      "kind": "bgm",
+      "file": "chapter1_act1_bgm.wav",
+      "url": "/api/content/audio/chapter1_act1_bgm.wav",
+      "loop": true,
+      "volume": 0.75
+    }
+  ],
+  "dialogues": [],
+  "tasks": []
+}
+```
+
+When `story_dir` exists and contains scene JSON files, `POST /api/content/story` returns a collection. Otherwise it falls back to `story_file`.
+
+## Story Audio
+
+Story audio files live in:
+
+```text
+wav/story/
+```
+
+Story JSON references audio through the `audio` array:
+
+```json
+{
+  "audio": [
+    {
+      "id": "luna_intro_voice",
+      "kind": "voice",
+      "file": "luna_intro_001.wav",
+      "url": "/api/content/audio/luna_intro_001.wav",
+      "dialogue_index": 0,
+      "volume": 1.0
+    }
+  ]
+}
+```
+
+Audio endpoints:
+
+```text
+GET /api/content/audio
+GET /api/content/audio/{filename}
+```
+
+Both endpoints require normal `X-Dreamweave-*` request signing. The list endpoint returns available files. The stream endpoint returns `audio/wav`.
 
 ## Client Authentication
 

@@ -18,12 +18,24 @@ class AdminAuthRequest(BaseModel):
     token: str
 
 
-class StorySaveRequest(BaseModel):
+class LegacyStorySaveRequest(BaseModel):
+    content: dict[str, Any]
+
+
+class StoryCreateRequest(BaseModel):
+    chapter: int = Field(ge=1)
+    act: int = Field(ge=1)
+    chapter_title: str = Field(default="", max_length=120)
+    scene_title: str = Field(default="", max_length=120)
+
+
+class StorySceneSaveRequest(BaseModel):
     content: dict[str, Any]
 
 
 class SqlQueryRequest(BaseModel):
-    sql: str = Field(min_length=1, max_length=5000)
+    sql: str = Field(min_length=1, max_length=20000)
+    write: bool = False
 
 
 class AdminPanel:
@@ -52,8 +64,9 @@ class AdminPanel:
             return {"ok": True, "payload": self.panel_meta()}
 
         @router.get("/admin/api/endpoints")
-        def endpoints(_: None = Depends(self.require_admin)) -> dict[str, Any]:
-            return {"ok": True, "payload": {"endpoints": self.endpoints()}}
+        def endpoints(lang: str = "zh-CN", _: None = Depends(self.require_admin)) -> dict[str, Any]:
+            language = normalize_language(lang)
+            return {"ok": True, "payload": {"language": language, "endpoints": self.endpoints(language)}}
 
         @router.get("/admin/api/logs")
         def logs(limit: int = 100, _: None = Depends(self.require_admin)) -> dict[str, Any]:
@@ -67,13 +80,14 @@ class AdminPanel:
                 "ok": True,
                 "payload": {
                     "path": str(self.config.content.story_file),
+                    "story_dir": str(self.config.content.story_dir),
                     "md5": md5_hex(raw),
                     "content": content,
                 },
             }
 
         @router.post("/admin/api/story")
-        def save_story(request: StorySaveRequest, _: None = Depends(self.require_admin)) -> dict[str, Any]:
+        def save_story(request: LegacyStorySaveRequest, _: None = Depends(self.require_admin)) -> dict[str, Any]:
             self.config.content.story_file.parent.mkdir(parents=True, exist_ok=True)
             self.config.content.story_file.write_text(
                 json.dumps(request.content, ensure_ascii=False, indent=2) + "\n",
@@ -81,14 +95,80 @@ class AdminPanel:
             )
             return {"ok": True, "payload": {"saved": True, "path": str(self.config.content.story_file)}}
 
+        @router.get("/admin/api/story/scenes")
+        def story_scenes(_: None = Depends(self.require_admin)) -> dict[str, Any]:
+            return {
+                "ok": True,
+                "payload": {
+                    "story_dir": str(self.config.content.story_dir),
+                    "scenes": self.content.list_story_scenes(),
+                },
+            }
+
+        @router.post("/admin/api/story/scenes")
+        def create_story_scene(request: StoryCreateRequest, _: None = Depends(self.require_admin)) -> dict[str, Any]:
+            try:
+                scene = self.content.create_story_scene(
+                    request.chapter,
+                    request.act,
+                    request.chapter_title or f"Chapter {request.chapter}",
+                    request.scene_title or f"Scene {request.act}",
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            return {"ok": True, "payload": scene}
+
+        @router.get("/admin/api/story/scenes/{filename}")
+        def read_story_scene(filename: str, _: None = Depends(self.require_admin)) -> dict[str, Any]:
+            try:
+                content = self.content.read_story_scene(filename)
+                path = self.content.story_path(filename)
+            except (OSError, json.JSONDecodeError, ValueError) as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raw = json.dumps(content, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            return {
+                "ok": True,
+                "payload": {
+                    "file": path.name,
+                    "path": str(path),
+                    "md5": md5_hex(raw),
+                    "content": content,
+                },
+            }
+
+        @router.put("/admin/api/story/scenes/{filename}")
+        def save_story_scene(filename: str, request: StorySceneSaveRequest, _: None = Depends(self.require_admin)) -> dict[str, Any]:
+            try:
+                scene = self.content.save_story_scene(filename, request.content)
+            except (OSError, ValueError) as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            return {"ok": True, "payload": scene}
+
         @router.get("/admin/api/sql/tables")
         def tables(_: None = Depends(self.require_admin)) -> dict[str, Any]:
             return {"ok": True, "payload": {"tables": self.database.list_tables()}}
 
+        @router.get("/admin/api/sql/tables/{table}/schema")
+        def table_schema(table: str, _: None = Depends(self.require_admin)) -> dict[str, Any]:
+            try:
+                return {"ok": True, "payload": self.database.table_schema(table)}
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        @router.get("/admin/api/sql/tables/{table}/rows")
+        def table_rows(table: str, limit: int = 100, offset: int = 0, _: None = Depends(self.require_admin)) -> dict[str, Any]:
+            try:
+                return {"ok": True, "payload": self.database.table_rows(table, limit, offset)}
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         @router.post("/admin/api/sql/query")
         def sql_query(request: SqlQueryRequest, _: None = Depends(self.require_admin)) -> dict[str, Any]:
             try:
-                result = self.database.query_readonly(request.sql, self.config.admin.max_sql_rows)
+                if request.write:
+                    result = self.database.execute_admin_sql(request.sql, self.config.admin.max_sql_rows)
+                else:
+                    result = self.database.query_readonly(request.sql, self.config.admin.max_sql_rows)
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             return {"ok": True, "payload": result}
@@ -118,29 +198,101 @@ class AdminPanel:
             "environment": self.config.server.environment,
             "region": self.config.server.region,
             "server_name": self.config.server.server_name,
+            "database": str(self.config.database.path),
+            "story_dir": str(self.config.content.story_dir),
         }
 
     @staticmethod
-    def endpoints() -> list[dict[str, str]]:
+    def endpoints(lang: str = "zh-CN") -> list[dict[str, Any]]:
+        descriptions = endpoint_descriptions(normalize_language(lang))
         return [
-            {"method": "GET", "path": "/api/version", "auth": "client"},
-            {"method": "GET", "path": "/api/status", "auth": "client"},
-            {"method": "POST", "path": "/api/hello", "auth": "public"},
-            {"method": "POST", "path": "/api/register", "auth": "client"},
-            {"method": "POST", "path": "/api/login", "auth": "client"},
-            {"method": "POST", "path": "/api/sync/get", "auth": "client+session"},
-            {"method": "POST", "path": "/api/sync/update", "auth": "client+session"},
-            {"method": "POST", "path": "/api/content/story", "auth": "client"},
-            {"method": "POST", "path": "/api/content/ack", "auth": "client"},
-            {"method": "GET", "path": "/api/legal/terms", "auth": "client"},
-            {"method": "GET", "path": "/api/legal/privacy", "auth": "client"},
-            {"method": "GET", "path": "/admin", "auth": "public page"},
-            {"method": "POST", "path": "/admin/api/auth", "auth": "admin token"},
-            {"method": "GET", "path": "/admin/api/meta", "auth": "admin token"},
-            {"method": "GET", "path": "/admin/api/endpoints", "auth": "admin token"},
-            {"method": "GET", "path": "/admin/api/logs", "auth": "admin token"},
-            {"method": "GET", "path": "/admin/api/story", "auth": "admin token"},
-            {"method": "POST", "path": "/admin/api/story", "auth": "admin token"},
-            {"method": "GET", "path": "/admin/api/sql/tables", "auth": "admin token"},
-            {"method": "POST", "path": "/admin/api/sql/query", "auth": "admin token"},
+            endpoint("GET", "/api/version", "client", descriptions["api_version"]),
+            endpoint("GET", "/api/status", "client", descriptions["api_status"]),
+            endpoint("POST", "/api/hello", "public/client handshake", descriptions["api_hello"]),
+            endpoint("POST", "/api/register", "client", descriptions["api_register"]),
+            endpoint("POST", "/api/login", "client", descriptions["api_login"]),
+            endpoint("POST", "/api/sync/get", "client+session", descriptions["api_sync_get"]),
+            endpoint("POST", "/api/sync/update", "client+session", descriptions["api_sync_update"]),
+            endpoint("POST", "/api/content/story", "client", descriptions["api_content_story"]),
+            endpoint("GET", "/api/content/audio", "client", descriptions["api_content_audio"]),
+            endpoint("GET", "/api/content/audio/{filename}", "client", descriptions["api_content_audio_file"]),
+            endpoint("POST", "/api/content/ack", "client", descriptions["api_content_ack"]),
+            endpoint("GET", "/api/legal/terms", "client", descriptions["api_terms"]),
+            endpoint("GET", "/api/legal/privacy", "client", descriptions["api_privacy"]),
+            endpoint("GET", "/admin", "public page", descriptions["admin_page"]),
+            endpoint("POST", "/admin/api/auth", "admin token", descriptions["admin_auth"]),
+            endpoint("GET", "/admin/api/meta", "admin token", descriptions["admin_meta"]),
+            endpoint("GET", "/admin/api/endpoints", "admin token", descriptions["admin_endpoints"]),
+            endpoint("GET", "/admin/api/logs", "admin token", descriptions["admin_logs"]),
+            endpoint("GET", "/admin/api/story", "admin token", descriptions["admin_story_get"]),
+            endpoint("POST", "/admin/api/story", "admin token", descriptions["admin_story_post"]),
+            endpoint("GET", "/admin/api/story/scenes", "admin token", descriptions["admin_scenes"]),
+            endpoint("POST", "/admin/api/story/scenes", "admin token", descriptions["admin_scenes_post"]),
+            endpoint("GET", "/admin/api/story/scenes/{filename}", "admin token", descriptions["admin_scene_get"]),
+            endpoint("PUT", "/admin/api/story/scenes/{filename}", "admin token", descriptions["admin_scene_put"]),
+            endpoint("GET", "/admin/api/sql/tables", "admin token", descriptions["admin_sql_tables"]),
+            endpoint("GET", "/admin/api/sql/tables/{table}/schema", "admin token", descriptions["admin_sql_schema"]),
+            endpoint("GET", "/admin/api/sql/tables/{table}/rows", "admin token", descriptions["admin_sql_rows"]),
+            endpoint("POST", "/admin/api/sql/query", "admin token", descriptions["admin_sql_query"]),
         ]
+
+
+def endpoint(method: str, path: str, auth: str, description: str) -> dict[str, Any]:
+    return {
+        "method": method,
+        "path": path,
+        "auth": auth,
+        "description": description,
+    }
+
+
+def normalize_language(value: str) -> str:
+    aliases = {
+        "zh": "zh-CN",
+        "zh-cn": "zh-CN",
+        "cn": "zh-CN",
+        "en": "en-US",
+        "en-us": "en-US",
+        "ja": "ja-JP",
+        "ja-jp": "ja-JP",
+        "jp": "ja-JP",
+        "ru": "ru-RU",
+        "ru-ru": "ru-RU",
+    }
+    return aliases.get(value.strip().lower(), value.strip() or "zh-CN")
+
+
+def endpoint_descriptions(lang: str) -> dict[str, str]:
+    zh = {
+        "api_version": "Returns server version, protocol version, API revision, and update metadata.",
+        "api_status": "Returns server health, component status, database status, and content path status.",
+        "api_hello": "Creates a handshake or completes mutual client authentication with client proof.",
+        "api_register": "Registers a user and initializes player state.",
+        "api_login": "Logs in a user, returns a session token, and writes the session cookie.",
+        "api_sync_get": "Reads player sync state.",
+        "api_sync_update": "Updates player position, rotation, inventory, tasks, and base stats.",
+        "api_content_story": "Returns the encrypted story collection and developer proof.",
+        "api_content_audio": "Lists story audio files under wav/story.",
+        "api_content_audio_file": "Streams one WAV story audio file from wav/story.",
+        "api_content_ack": "Accepts client MD5 proof for story content confirmation.",
+        "api_terms": "Returns Terms of Service Markdown; supports the lang parameter.",
+        "api_privacy": "Returns Privacy Policy Markdown; supports the lang parameter.",
+        "admin_page": "Admin panel page.",
+        "admin_auth": "Validates the admin token.",
+        "admin_meta": "Returns panel, API, server, and protocol versions.",
+        "admin_endpoints": "Returns available endpoints and descriptions; supports the lang parameter.",
+        "admin_logs": "Shows API and admin API call logs.",
+        "admin_story_get": "Compatibility endpoint for current story collection or legacy story file.",
+        "admin_story_post": "Compatibility endpoint for saving the legacy story file.",
+        "admin_scenes": "Lists multi-scene story files under ./story.",
+        "admin_scenes_post": "Creates ./story/<chapter>-<act>.json.",
+        "admin_scene_get": "Reads a selected story JSON file.",
+        "admin_scene_put": "Saves a selected story JSON file.",
+        "admin_sql_tables": "Lists SQLite tables.",
+        "admin_sql_schema": "Shows table columns, indexes, foreign keys, and row count.",
+        "admin_sql_rows": "Shows paginated table rows.",
+        "admin_sql_query": "Runs SQL. Read-only by default; write=true allows one write statement.",
+    }
+    # Endpoint descriptions currently use English as a stable fallback for all languages.
+    # The admin UI shell remains Chinese-first and can request localized endpoint data later.
+    return zh

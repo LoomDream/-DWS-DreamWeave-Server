@@ -11,6 +11,8 @@ Dreamweave Server is the backend for the Dreamweave 3D online game. The current 
 - Request signatures cover HTTP method, path, body MD5, timestamp, nonce, and session key.
 - Story JSON transfer includes MD5 integrity checks and developer-secret proof.
 - Story payloads are encrypted at the application layer, independent of HTTPS.
+- Story audio files live in `wav/story` and are streamed through authenticated audio APIs.
+- Token-only admin panel with call logs, endpoint details/testing, visual SQLite browsing, SQL execution, and multi-scene story management.
 
 ## Requirements
 
@@ -69,8 +71,10 @@ http://127.0.0.1:7777
 FastAPI docs are available while the server is running:
 
 ```text
-http://127.0.0.1:7777/docs
+http://127.0.0.1:7777/docs?lang=en-US
 ```
+
+Localized docs default to Chinese at `/docs`. FastAPI's native Swagger UI is available at `/swagger`.
 
 Admin panel:
 
@@ -88,6 +92,10 @@ http://127.0.0.1:7777/admin
 |-- requirements.txt     # Python dependencies
 |-- content/
 |   `-- story.json       # Story/dialogue/task content
+|-- story/
+|   `-- 1-1.json         # Multi-scene story files: <chapter>-<act>.json
+|-- wav/
+|   `-- story/           # WAV story audio files
 |-- docs/
 |   `-- en-us/           # English docs
 `-- network/
@@ -118,6 +126,8 @@ POST /api/login
 POST /api/sync/get
 POST /api/sync/update
 POST /api/content/story
+GET  /api/content/audio
+GET  /api/content/audio/{filename}
 POST /api/content/ack
 ```
 
@@ -159,11 +169,72 @@ $env:DREAMWEAVE_ADMIN_TOKEN = "..."
 Panel capabilities:
 
 - View panel version, API revision, protocol version, and server version.
-- View available endpoints.
+- View available endpoints and endpoint details.
+- Test endpoints directly from the panel.
 - View API and admin API call logs.
-- View and save story JSON.
-- View SQLite tables.
-- Run read-only SQL: `SELECT`, `WITH`, `PRAGMA`.
+- Create, view, and edit multi-scene story JSON files in `./story/<chapter>-<act>.json`.
+- View SQLite tables, schemas, indexes, foreign keys, and paginated rows.
+- Run read-only SQL by default; single write statements are available when explicitly enabled.
+
+## Multi-Scene Story Files
+
+Story directory:
+
+```text
+./story/
+```
+
+File naming:
+
+```text
+<chapter>-<act>.json
+```
+
+Each JSON file should start with `meta`:
+
+```json
+{
+  "meta": {
+    "chapter": 1,
+    "act": 1,
+    "chapter_title": "Chapter One",
+    "scene_title": "Scene One"
+  },
+  "characters": [],
+  "backgrounds": [],
+  "audio": [
+    {
+      "id": "intro_bgm",
+      "kind": "bgm",
+      "file": "chapter1_act1_bgm.wav",
+      "url": "/api/content/audio/chapter1_act1_bgm.wav",
+      "loop": true,
+      "volume": 0.75
+    }
+  ],
+  "dialogues": [],
+  "tasks": []
+}
+```
+
+When the story directory exists and contains scene files, `POST /api/content/story` returns a story collection. Otherwise it falls back to `content/story.json`.
+
+## Story Audio
+
+Audio directory:
+
+```text
+wav/story/
+```
+
+Audio files use `.wav`. Story JSON references files through an `audio` array.
+
+```text
+GET /api/content/audio
+GET /api/content/audio/{filename}
+```
+
+Both endpoints are under `/api/*`, so they require normal `X-Dreamweave-*` request signing. The list endpoint returns filename, size, updated time, URL, and content type. The file endpoint streams `audio/wav`.
 
 ## Version And Status Config
 
@@ -237,7 +308,7 @@ Current tables:
 Story, dialogue, and task data currently live in:
 
 ```text
-content/story.json
+story/<chapter>-<act>.json
 ```
 
 `POST /api/content/story` returns an encrypted package with:

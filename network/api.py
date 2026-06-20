@@ -4,12 +4,13 @@ import time
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .admin import AdminPanel
 from .config import AppConfig
 from .content import ContentStore
+from .docs_ui import docs_page
 from .crypto import (
     client_proof,
     constant_time_equal,
@@ -61,11 +62,21 @@ class DreamweaveApi:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
         self.database = Database(config.database.path, config.security.session_token_ttl_seconds)
-        self.content = ContentStore(config.content.story_file, config.security.developer_secret)
+        self.content = ContentStore(
+            config.content.story_file,
+            config.content.story_dir,
+            config.content.audio_dir,
+            config.security.developer_secret,
+        )
         self.started_at = int(time.time())
 
     def app(self) -> FastAPI:
-        app = FastAPI(title="Dreamweave Server", version=self.config.server.version)
+        app = FastAPI(
+            title="Dreamweave Server",
+            version=self.config.server.version,
+            docs_url="/swagger",
+            redoc_url="/redoc",
+        )
 
         @app.on_event("startup")
         def startup() -> None:
@@ -91,6 +102,10 @@ class DreamweaveApi:
             response = await call_next(request)
             self.record_call(request, response.status_code, started)
             return response
+
+        @app.get("/docs", include_in_schema=False)
+        def localized_docs(lang: str | None = None) -> Response:
+            return Response(content=docs_page(self.config, lang), media_type="text/html; charset=utf-8")
 
         @app.get("/api/version")
         def version() -> dict[str, Any]:
@@ -118,10 +133,12 @@ class DreamweaveApi:
             handshake_counts = self.database.count_handshakes()
             authenticated_handshakes = handshake_counts["authenticated"]
             database_ok = self.check_database()
+            story_scene_count = len(self.content.list_story_scenes()) if self.config.content.story_dir.exists() else 0
             story_exists = self.config.content.story_file.exists()
+            story_content_ok = story_exists or story_scene_count > 0
             legal_terms_exists = self.config.legal.terms_file.exists()
             legal_privacy_exists = self.config.legal.privacy_file.exists()
-            degraded = not database_ok or not story_exists or not legal_terms_exists or not legal_privacy_exists
+            degraded = not database_ok or not story_content_ok or not legal_terms_exists or not legal_privacy_exists
             return self.ok(
                 "api/status",
                 {
@@ -151,7 +168,7 @@ class DreamweaveApi:
                         "api": {"ok": True},
                         "auth": {"ok": True, "active_handshakes": authenticated_handshakes},
                         "database": {"ok": database_ok},
-                        "content": {"ok": story_exists},
+                        "content": {"ok": story_content_ok, "scene_count": story_scene_count},
                         "legal": {"ok": legal_terms_exists and legal_privacy_exists},
                     },
                     "database": {
@@ -161,6 +178,10 @@ class DreamweaveApi:
                     "content": {
                         "story_file_exists": story_exists,
                         "story_file": str(self.config.content.story_file),
+                        "story_dir": str(self.config.content.story_dir),
+                        "story_scene_count": story_scene_count,
+                        "audio_dir": str(self.config.content.audio_dir),
+                        "story_audio_count": len(self.content.list_story_audio())
                     },
                     "legal": {
                         "terms_file_exists": legal_terms_exists,
@@ -174,12 +195,12 @@ class DreamweaveApi:
             )
 
         @app.get("/api/legal/terms")
-        def legal_terms() -> dict[str, Any]:
-            return self.legal_document("api/legal/terms", self.config.legal.terms_file)
+        def legal_terms(lang: str | None = None) -> dict[str, Any]:
+            return self.legal_document("api/legal/terms", "terms", lang)
 
         @app.get("/api/legal/privacy")
-        def legal_privacy() -> dict[str, Any]:
-            return self.legal_document("api/legal/privacy", self.config.legal.privacy_file)
+        def legal_privacy(lang: str | None = None) -> dict[str, Any]:
+            return self.legal_document("api/legal/privacy", "privacy", lang)
 
         @app.post("/api/hello")
         def hello(request: HelloRequest, response: Response) -> dict[str, Any]:
@@ -293,6 +314,30 @@ class DreamweaveApi:
             session = self.authenticated_session(http_request)
             package = self.content.encrypted_story_package(session["session_key"])
             return self.ok("api/content/story", package)
+
+        @app.get("/api/content/audio")
+        def content_audio_list() -> dict[str, Any]:
+            if not self.config.status.allow_content_download:
+                raise HTTPException(status_code=503, detail="content download is disabled")
+            return self.ok(
+                "api/content/audio",
+                {
+                    "audio_dir": str(self.config.content.audio_dir),
+                    "files": self.content.list_story_audio(),
+                },
+            )
+
+        @app.get("/api/content/audio/{filename}")
+        def content_audio_stream(filename: str) -> FileResponse:
+            if not self.config.status.allow_content_download:
+                raise HTTPException(status_code=503, detail="content download is disabled")
+            try:
+                path = self.content.audio_path(filename)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            if not path.exists():
+                raise HTTPException(status_code=404, detail="audio file does not exist")
+            return FileResponse(path, media_type="audio/wav", filename=path.name)
 
         @app.post("/api/content/ack")
         def content_ack(request: ContentAckRequest, http_request: Request) -> dict[str, Any]:
@@ -412,7 +457,8 @@ class DreamweaveApi:
             return False
         return True
 
-    def legal_document(self, route: str, path: Any) -> dict[str, Any]:
+    def legal_document(self, route: str, kind: str, lang: str | None) -> dict[str, Any]:
+        path, language = self.resolve_legal_document(kind, lang)
         if not path.exists():
             raise HTTPException(status_code=404, detail="legal document does not exist")
         text = path.read_text(encoding="utf-8")
@@ -420,11 +466,25 @@ class DreamweaveApi:
             route,
             {
                 "format": "markdown",
+                "language": language,
+                "available_languages": list(self.config.legal.fallback_languages),
                 "path": str(path),
                 "updated_at": int(path.stat().st_mtime),
                 "content": text,
             },
         )
+
+    def resolve_legal_document(self, kind: str, lang: str | None) -> tuple[Any, str]:
+        directory = self.config.legal.terms_dir if kind == "terms" else self.config.legal.privacy_dir
+        legacy_path = self.config.legal.terms_file if kind == "terms" else self.config.legal.privacy_file
+        requested = normalize_language(lang or self.config.legal.default_language)
+        candidates = [requested]
+        candidates.extend(normalize_language(item) for item in self.config.legal.fallback_languages)
+        for language in dict.fromkeys(candidates):
+            path = directory / f"{language}.md"
+            if path.exists():
+                return path, language
+        return legacy_path, self.config.legal.default_language
 
     def set_cookie(self, response: Response, key: str, value: str, max_age: int, httponly: bool) -> None:
         response.set_cookie(
@@ -443,3 +503,19 @@ class DreamweaveApi:
 
 def create_app(config: AppConfig) -> FastAPI:
     return DreamweaveApi(config).app()
+
+
+def normalize_language(value: str) -> str:
+    aliases = {
+        "zh": "zh-CN",
+        "zh-cn": "zh-CN",
+        "cn": "zh-CN",
+        "en": "en-US",
+        "en-us": "en-US",
+        "ja": "ja-JP",
+        "ja-jp": "ja-JP",
+        "jp": "ja-JP",
+        "ru": "ru-RU",
+        "ru-ru": "ru-RU",
+    }
+    return aliases.get(value.strip().lower(), value.strip() or "zh-CN")

@@ -319,6 +319,50 @@ class Database:
             ).fetchall()
         return [str(row["name"]) for row in rows]
 
+    def table_schema(self, table: str) -> dict[str, Any]:
+        safe_table = _safe_identifier(table)
+        with self.connection() as conn:
+            columns = conn.execute(f'PRAGMA table_info("{safe_table}")').fetchall()
+            indexes = conn.execute(f'PRAGMA index_list("{safe_table}")').fetchall()
+            foreign_keys = conn.execute(f'PRAGMA foreign_key_list("{safe_table}")').fetchall()
+            count_row = conn.execute(f'SELECT COUNT(*) AS total FROM "{safe_table}"').fetchone()
+        return {
+            "table": safe_table,
+            "row_count": int(count_row["total"] if count_row else 0),
+            "columns": [
+                {
+                    "cid": int(row["cid"]),
+                    "name": str(row["name"]),
+                    "type": str(row["type"]),
+                    "notnull": bool(row["notnull"]),
+                    "default": row["dflt_value"],
+                    "primary_key": bool(row["pk"]),
+                }
+                for row in columns
+            ],
+            "indexes": [dict(row) for row in indexes],
+            "foreign_keys": [dict(row) for row in foreign_keys],
+        }
+
+    def table_rows(self, table: str, limit: int, offset: int) -> dict[str, Any]:
+        safe_table = _safe_identifier(table)
+        safe_limit = min(max(limit, 1), 500)
+        safe_offset = max(offset, 0)
+        with self.connection() as conn:
+            cursor = conn.execute(f'SELECT * FROM "{safe_table}" LIMIT ? OFFSET ?', (safe_limit, safe_offset))
+            rows = cursor.fetchall()
+            columns = [description[0] for description in cursor.description or []]
+            count_row = conn.execute(f'SELECT COUNT(*) AS total FROM "{safe_table}"').fetchone()
+        return {
+            "table": safe_table,
+            "columns": columns,
+            "rows": [[row[column] for column in columns] for row in rows],
+            "row_count": len(rows),
+            "total": int(count_row["total"] if count_row else 0),
+            "limit": safe_limit,
+            "offset": safe_offset,
+        }
+
     def query_readonly(self, sql: str, max_rows: int) -> dict[str, Any]:
         statement = sql.strip()
         if not _is_readonly_sql(statement):
@@ -332,6 +376,24 @@ class Database:
             "rows": [[row[column] for column in columns] for row in rows],
             "row_count": len(rows),
         }
+
+    def execute_admin_sql(self, sql: str, max_rows: int) -> dict[str, Any]:
+        statement = sql.strip()
+        if not statement:
+            raise ValueError("sql must not be empty")
+        if _has_multiple_statements(statement):
+            raise ValueError("only one SQL statement is allowed")
+        if _is_readonly_sql(statement):
+            return self.query_readonly(statement, max_rows)
+        with self.connection() as conn:
+            cursor = conn.execute(statement)
+            return {
+                "columns": [],
+                "rows": [],
+                "row_count": 0,
+                "affected_rows": cursor.rowcount,
+                "lastrowid": cursor.lastrowid,
+            }
 
 
 def default_player_state() -> dict[str, Any]:
@@ -400,3 +462,13 @@ def _is_readonly_sql(statement: str) -> bool:
     if ";" in lowered.rstrip(";"):
         return False
     return lowered.startswith("select ") or lowered.startswith("with ") or lowered.startswith("pragma ")
+
+
+def _has_multiple_statements(statement: str) -> bool:
+    return ";" in statement.strip().rstrip(";")
+
+
+def _safe_identifier(value: str) -> str:
+    if not value.replace("_", "").isalnum():
+        raise ValueError("invalid table name")
+    return value
