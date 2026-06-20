@@ -56,7 +56,7 @@ Content-Type: application/json
 {
   "client": {
     "name": "DreamweaveClient",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "platform": "windows",
     "build": "dev",
     "device": "desktop"
@@ -71,10 +71,10 @@ Content-Type: application/json
   "handshake_id": "...",
   "server_nonce": "...",
   "server_key": "...",
-  "version": "0.1.1",
-  "minimum_client_version": "0.1.1",
-  "recommended_client_version": "0.1.1",
-  "api_revision": "2",
+  "version": "0.1.2",
+  "minimum_client_version": "0.1.2",
+  "recommended_client_version": "0.1.2",
+  "api_revision": "3",
   "protocol_version": "2026.06",
   "client_metadata_required": true,
   "motd": "Dreamweave alpha server"
@@ -99,7 +99,7 @@ Content-Type: application/json
   "client_key": "...",
   "client": {
     "name": "DreamweaveClient",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "platform": "windows",
     "build": "dev",
     "device": "desktop"
@@ -185,6 +185,26 @@ GET  /api/content/audio
 GET  /api/content/audio/{filename}
 POST /api/content/ack
 ```
+
+## 用户数据
+
+用户数据至少包含：
+
+```json
+{
+  "uid": "player_001",
+  "nickname": "织梦者",
+  "email": "player@example.com",
+  "password_md5": "e10adc3949ba59abbe56e057f20f883e"
+}
+```
+
+- `uid`：用户唯一 ID，用于登录、同步和服务端识别。
+- `nickname`：玩家显示昵称。
+- `email`：联系邮箱，用于账号联系、找回或运营通知。
+- `password_md5`：客户端对 UTF-8 密码原文计算出的 32 位小写 MD5，用于注册和登录匹配。
+
+注册使用 `uid`、`nickname`、`email`、`password_md5`。登录使用 `uid` 和 `password_md5`。服务端会保存 `password_md5` 的服务端哈希，不保存明文密码。兼容字段 `username` 与 `display_name` 仍会返回给旧客户端；旧客户端传 `password` 时，服务端会转换为 MD5 凭据并在成功登录后升级存储。
 
 ## 内容传输
 
@@ -394,9 +414,9 @@ eula_dir = "content/legal/eula"
   "status": "ok",
   "public_message": "Dreamweave server is online.",
   "maintenance": false,
-  "server_version": "0.1.1",
+  "server_version": "0.1.2",
   "protocol_version": "2026.06",
-  "api_revision": "2",
+  "api_revision": "3",
   "database": {"ok": true, "path": "..."},
   "content": {"story_file_exists": true, "story_file": "..."},
   "handshakes": {"total": 1, "authenticated": 1}

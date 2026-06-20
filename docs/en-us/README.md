@@ -6,6 +6,7 @@ Dreamweave Server is the backend for the Dreamweave 3D online game. The current 
 
 - FastAPI HTTP API with unified `/api/*` routes.
 - SQLite user database with registration, login, session tokens, and player-state sync.
+- User data includes `uid`, `nickname`, and `email`; legacy `username` and `display_name` fields are still returned for compatibility.
 - Client handshake authentication through `/api/hello`.
 - All business API requests must include `X-Dreamweave-*` signature headers.
 - Request signatures cover HTTP method, path, body MD5, timestamp, nonce, and session key.
@@ -162,7 +163,7 @@ The admin panel uses a single Admin Token. No username/password login is require
 ```toml
 [admin]
 enabled = true
-panel_version = "0.1.1"
+panel_version = "0.1.2"
 token = "change-me-dreamweave-admin-token"
 max_sql_rows = 200
 ```
@@ -249,10 +250,10 @@ Both endpoints are under `/api/*`, so they require normal `X-Dreamweave-*` reque
 
 ```toml
 [version]
-minimum_client_version = "0.1.1"
-recommended_client_version = "0.1.1"
+minimum_client_version = "0.1.2"
+recommended_client_version = "0.1.2"
 protocol_version = "2026.06"
-api_revision = "2"
+api_revision = "3"
 update_required = false
 download_url = ""
 release_notes_url = ""

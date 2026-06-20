@@ -152,7 +152,7 @@ Content-Type: application/json
 {
   "client": {
     "name": "DreamweaveClient",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "platform": "windows",
     "build": "dev",
     "device": "desktop"
@@ -167,10 +167,10 @@ Response payload:
   "handshake_id": "...",
   "server_nonce": "...",
   "server_key": "...",
-  "version": "0.1.1",
-  "minimum_client_version": "0.1.1",
-  "recommended_client_version": "0.1.1",
-  "api_revision": "2",
+  "version": "0.1.2",
+  "minimum_client_version": "0.1.2",
+  "recommended_client_version": "0.1.2",
+  "api_revision": "3",
   "protocol_version": "2026.06",
   "client_metadata_required": true,
   "motd": "Dreamweave alpha server"
@@ -197,7 +197,7 @@ Content-Type: application/json
   "client_key": "...",
   "client": {
     "name": "DreamweaveClient",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "platform": "windows",
     "build": "dev",
     "device": "desktop"
@@ -285,6 +285,26 @@ POST /api/content/story
 POST /api/content/ack
 ```
 
+## User Data
+
+User data contains:
+
+```json
+{
+  "uid": "player_001",
+  "nickname": "Dreamer",
+  "email": "player@example.com",
+  "password_md5": "e10adc3949ba59abbe56e057f20f883e"
+}
+```
+
+- `uid`: unique user ID used for login, sync, and server-side identity.
+- `nickname`: player display name.
+- `email`: contact email for account recovery, contact, or operational notices.
+- `password_md5`: 32-character lowercase MD5 of the UTF-8 password, sent by the client for registration and login matching.
+
+Registration uses `uid`, `nickname`, `email`, and `password_md5`. Login uses `uid` and `password_md5`. The server stores a server-side hash of `password_md5`, not the plaintext password. Legacy fields `username` and `display_name` are still returned for compatibility; legacy clients that send `password` are converted to the MD5 credential and upgraded after a successful login.
+
 Handshake endpoint:
 
 ```text
@@ -301,9 +321,9 @@ POST /api/hello
   "public_message": "Dreamweave server is online.",
   "maintenance": false,
   "maintenance_message": "",
-  "server_version": "0.1.1",
+  "server_version": "0.1.2",
   "protocol_version": "2026.06",
-  "api_revision": "2",
+  "api_revision": "3",
   "server_name": "Dreamweave Alpha",
   "environment": "development",
   "region": "local",

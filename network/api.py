@@ -4,6 +4,7 @@ import time
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
@@ -40,14 +41,20 @@ class HelloRequest(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    username: str = Field(min_length=3, max_length=32)
-    password: str = Field(min_length=6, max_length=256)
+    uid: str | None = Field(default=None, min_length=3, max_length=32)
+    username: str | None = Field(default=None, min_length=3, max_length=32)
+    password_md5: str | None = Field(default=None, min_length=32, max_length=32)
+    password: str | None = Field(default=None, min_length=6, max_length=256)
+    nickname: str | None = Field(default=None, min_length=1, max_length=32)
     display_name: str | None = Field(default=None, max_length=32)
+    email: str = Field(min_length=3, max_length=254)
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    uid: str | None = Field(default=None, min_length=3, max_length=32)
+    username: str | None = Field(default=None, min_length=3, max_length=32)
+    password_md5: str | None = Field(default=None, min_length=32, max_length=32)
+    password: str | None = None
 
 
 class TokenRequest(BaseModel):
@@ -86,6 +93,17 @@ class DreamweaveApi:
             docs_url="/swagger",
             redoc_url="/redoc",
         )
+        if self.config.cors.enabled:
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origins=list(self.config.cors.allow_origins),
+                allow_origin_regex=self.config.cors.allow_origin_regex or None,
+                allow_credentials=self.config.cors.allow_credentials,
+                allow_methods=list(self.config.cors.allow_methods),
+                allow_headers=list(self.config.cors.allow_headers),
+                expose_headers=list(self.config.cors.expose_headers),
+                max_age=self.config.cors.max_age,
+            )
 
         @app.on_event("startup")
         def startup() -> None:
@@ -290,8 +308,16 @@ class DreamweaveApi:
         def register(request: RegisterRequest) -> dict[str, Any]:
             if not self.config.status.allow_registration:
                 raise HTTPException(status_code=503, detail="registration is disabled")
+            if not (request.uid or request.username):
+                raise HTTPException(status_code=400, detail="uid is required")
+            password_md5, _ = password_credential(request.password_md5, request.password)
             try:
-                user = self.database.register_user(request.username, request.password, request.display_name)
+                user = self.database.register_user(
+                    uid=request.uid or request.username or "",
+                    password_md5=password_md5,
+                    nickname=request.nickname or request.display_name,
+                    email=request.email,
+                )
             except ValueError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
             return self.ok("api/register", {"user": user})
@@ -300,9 +326,13 @@ class DreamweaveApi:
         def login(request: LoginRequest, response: Response) -> dict[str, Any]:
             if not self.config.status.allow_login:
                 raise HTTPException(status_code=503, detail="login is disabled")
-            result = self.database.login_user(request.username, request.password)
+            identifier = request.uid or request.username or ""
+            if not identifier:
+                raise HTTPException(status_code=400, detail="uid is required")
+            password_md5, legacy_password = password_credential(request.password_md5, request.password)
+            result = self.database.login_user(identifier, password_md5, legacy_password)
             if result is None:
-                raise HTTPException(status_code=401, detail="username or password is invalid")
+                raise HTTPException(status_code=401, detail="uid or password is invalid")
             self.set_cookie(
                 response,
                 self.config.cookies.session_cookie,
@@ -402,6 +432,8 @@ class DreamweaveApi:
         return session
 
     def needs_client_auth(self, request: Request) -> bool:
+        if request.method.upper() == "OPTIONS":
+            return False
         path = request.url.path
         if not path.startswith("/api/"):
             return False
@@ -611,3 +643,14 @@ def normalize_language(value: str) -> str:
         "ru-ru": "ru-RU",
     }
     return aliases.get(value.strip().lower(), value.strip() or "zh-CN")
+
+
+def password_credential(password_md5: str | None, password: str | None) -> tuple[str, str | None]:
+    if password_md5:
+        safe_md5 = password_md5.strip().lower()
+        if len(safe_md5) != 32 or any(char not in "0123456789abcdef" for char in safe_md5):
+            raise HTTPException(status_code=400, detail="password_md5 must be a 32-character hex MD5")
+        return safe_md5, password
+    if password:
+        return md5_hex(password), password
+    raise HTTPException(status_code=400, detail="password_md5 is required")

@@ -1,24 +1,24 @@
 [server]
 host = "0.0.0.0"
 port = 7777
-version = "0.1.1"
+version = "0.1.2"
 motd = "Dreamweave alpha server"
 environment = "development"
 region = "local"
 server_name = "Dreamweave Alpha"
 
 [version]
-minimum_client_version = "0.1.1"
-recommended_client_version = "0.1.1"
+minimum_client_version = "0.1.2"
+recommended_client_version = "0.1.2"
 protocol_version = "2026.06"
-api_revision = "2"
+api_revision = "3"
 update_required = false
 download_url = ""
 release_notes_url = ""
 
 [admin]
 enabled = true
-panel_version = "0.1.1"
+panel_version = "0.1.2"
 # Development default only. Outside development, set a non-sample value here
 # or provide DREAMWEAVE_ADMIN_TOKEN.
 token = "change-me-dreamweave-admin-token"
@@ -38,6 +38,23 @@ samesite = "lax"
 domain = ""
 handshake_cookie = "dw_handshake"
 session_cookie = "dw_session"
+
+[cors]
+enabled = true
+allow_origins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:7777",
+  "http://127.0.0.1:7777",
+]
+allow_origin_regex = ""
+allow_credentials = true
+allow_methods = ["GET", "POST", "PUT", "OPTIONS"]
+allow_headers = ["*"]
+expose_headers = []
+max_age = 600
 
 [status]
 public_message = "Dreamweave server is online."

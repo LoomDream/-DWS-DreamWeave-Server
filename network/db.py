@@ -38,6 +38,9 @@ class Database:
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT NOT NULL UNIQUE,
+                    uid TEXT NOT NULL DEFAULT '',
+                    nickname TEXT NOT NULL DEFAULT '',
+                    email TEXT NOT NULL DEFAULT '',
                     password_hash TEXT NOT NULL,
                     display_name TEXT NOT NULL,
                     created_at INTEGER NOT NULL,
@@ -99,21 +102,37 @@ class Database:
             _ensure_column(conn, "call_logs", "client_platform", "TEXT NOT NULL DEFAULT ''")
             _ensure_column(conn, "call_logs", "client_build", "TEXT NOT NULL DEFAULT ''")
             _ensure_column(conn, "call_logs", "client_device", "TEXT NOT NULL DEFAULT ''")
+            _ensure_column(conn, "users", "uid", "TEXT NOT NULL DEFAULT ''")
+            _ensure_column(conn, "users", "nickname", "TEXT NOT NULL DEFAULT ''")
+            _ensure_column(conn, "users", "email", "TEXT NOT NULL DEFAULT ''")
+            conn.execute("UPDATE users SET uid = username WHERE uid = ''")
+            conn.execute("UPDATE users SET nickname = display_name WHERE nickname = ''")
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_uid ON users(uid)")
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email <> ''")
 
-    def register_user(self, username: str, password: str, display_name: str | None = None) -> dict[str, Any]:
+    def register_user(self, uid: str, password_md5: str, nickname: str | None, email: str) -> dict[str, Any]:
         now = int(time.time())
-        safe_display_name = display_name or username
+        safe_uid = uid.strip()
+        safe_password_md5 = _safe_md5(password_md5)
+        safe_email = email.strip().lower()
+        safe_nickname = (nickname or safe_uid).strip()
+        if not safe_uid:
+            raise ValueError("uid is required")
+        if not safe_password_md5:
+            raise ValueError("password_md5 is required")
+        if not safe_email or "@" not in safe_email:
+            raise ValueError("valid email is required")
         with self.connection() as conn:
             try:
                 cursor = conn.execute(
                     """
-                    INSERT INTO users (username, password_hash, display_name, created_at)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO users (username, uid, nickname, email, password_hash, display_name, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (username, hash_password(password), safe_display_name, now),
+                    (safe_uid, safe_uid, safe_nickname, safe_email, hash_password(safe_password_md5), safe_nickname, now),
                 )
             except sqlite3.IntegrityError as exc:
-                raise ValueError("username already exists") from exc
+                raise ValueError("uid or email already exists") from exc
 
             user_id = int(cursor.lastrowid)
             conn.execute(
@@ -124,14 +143,32 @@ class Database:
                 (user_id, json.dumps(default_player_state(), separators=(",", ":")), now),
             )
 
-        return {"id": user_id, "username": username, "display_name": safe_display_name}
+        return _user_payload(
+            {
+                "id": user_id,
+                "uid": safe_uid,
+                "username": safe_uid,
+                "nickname": safe_nickname,
+                "display_name": safe_nickname,
+                "email": safe_email,
+            }
+        )
 
-    def login_user(self, username: str, password: str) -> dict[str, Any] | None:
+    def login_user(self, identifier: str, password_md5: str, legacy_password: str | None = None) -> dict[str, Any] | None:
         now = int(time.time())
+        safe_identifier = identifier.strip()
+        safe_password_md5 = _safe_md5(password_md5)
+        if not safe_password_md5:
+            return None
         with self.connection() as conn:
-            user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
-            if user is None or not verify_password(password, str(user["password_hash"])):
+            user = conn.execute("SELECT * FROM users WHERE uid = ? OR username = ?", (safe_identifier, safe_identifier)).fetchone()
+            if user is None:
                 return None
+            password_hash = str(user["password_hash"])
+            if not verify_password(safe_password_md5, password_hash):
+                if not legacy_password or not verify_password(legacy_password, password_hash):
+                    return None
+                password_hash = hash_password(safe_password_md5)
 
             token = make_token()
             expires_at = now + self.token_ttl_seconds
@@ -139,16 +176,15 @@ class Database:
                 "INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
                 (token, int(user["id"]), now, expires_at),
             )
-            conn.execute("UPDATE users SET last_login_at = ? WHERE id = ?", (now, int(user["id"])))
+            conn.execute(
+                "UPDATE users SET last_login_at = ?, password_hash = ? WHERE id = ?",
+                (now, password_hash, int(user["id"])),
+            )
 
         return {
             "token": token,
             "expires_at": expires_at,
-            "user": {
-                "id": int(user["id"]),
-                "username": str(user["username"]),
-                "display_name": str(user["display_name"]),
-            },
+            "user": _user_payload(user),
         }
 
     def get_user_by_token(self, token: str) -> dict[str, Any] | None:
@@ -156,7 +192,7 @@ class Database:
         with self.connection() as conn:
             row = conn.execute(
                 """
-                SELECT users.id, users.username, users.display_name
+                SELECT users.id, users.uid, users.username, users.nickname, users.display_name, users.email
                 FROM sessions
                 JOIN users ON users.id = sessions.user_id
                 WHERE sessions.token = ? AND sessions.expires_at > ?
@@ -165,7 +201,7 @@ class Database:
             ).fetchone()
         if row is None:
             return None
-        return {"id": int(row["id"]), "username": str(row["username"]), "display_name": str(row["display_name"])}
+        return _user_payload(row)
 
     def get_player_state(self, user_id: int) -> dict[str, Any]:
         with self.connection() as conn:
@@ -511,6 +547,27 @@ def _safe_identifier(value: str) -> str:
     if not value.replace("_", "").isalnum():
         raise ValueError("invalid table name")
     return value
+
+
+def _safe_md5(value: str) -> str:
+    safe_value = value.strip().lower()
+    if len(safe_value) != 32 or any(char not in "0123456789abcdef" for char in safe_value):
+        return ""
+    return safe_value
+
+
+def _user_payload(row: Any) -> dict[str, Any]:
+    uid = str(row["uid"] or row["username"])
+    nickname = str(row["nickname"] or row["display_name"] or uid)
+    email = str(row["email"] or "")
+    return {
+        "id": int(row["id"]),
+        "uid": uid,
+        "nickname": nickname,
+        "email": email,
+        "username": uid,
+        "display_name": nickname,
+    }
 
 
 def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:

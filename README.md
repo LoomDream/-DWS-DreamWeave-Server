@@ -8,6 +8,7 @@ Dreamweave 织梦 3D 联机游戏服务端。当前版本基于 FastAPI 暴露 H
 
 - FastAPI HTTP API，业务接口统一位于 `/api/*`。
 - SQLite 存储用户、登录会话、玩家状态、握手会话、请求 nonce 和调用日志。
+- 用户数据包含 `uid`、`nickname`、`email` 和密码凭据；兼容返回旧字段 `username`、`display_name`。
 - `/api/hello` 建立客户端握手，除握手外的 `/api/*` 请求都需要 `X-Dreamweave-*` 签名。
 - `/api/content/story` 返回加密剧情包，带 MD5 完整性校验和开发者密钥 proof。
 - `/api/version` 和 `/api/status` 返回 JSON，内容由 `config.toml` 配置。
@@ -71,12 +72,12 @@ Swagger UI:   http://127.0.0.1:7777/swagger
 [server]
 host = "0.0.0.0"
 port = 7777
-version = "0.1.1"
+version = "0.1.2"
 environment = "development"
 
 [admin]
 enabled = true
-panel_version = "0.1.1"
+panel_version = "0.1.2"
 token = "change-me-dreamweave-admin-token"
 max_sql_rows = 200
 
@@ -88,6 +89,17 @@ developer_secret = "change-me-dreamweave-developer-secret"
 story_file = "content/story.json"
 story_dir = "story"
 audio_dir = "wav/story"
+```
+
+Web 客户端跨域配置：
+
+```toml
+[cors]
+enabled = true
+allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+allow_credentials = true
+allow_methods = ["GET", "POST", "PUT", "OPTIONS"]
+allow_headers = ["*"]
 ```
 
 非 `development/local/dev` 环境会拒绝空密钥和示例密钥。也可以用环境变量覆盖：
@@ -140,6 +152,21 @@ X-Dreamweave-Key: <request_key>
 `X-Dreamweave-Client-Name` 和 `X-Dreamweave-Client-Version` 为必填。平台、构建号和设备信息为可选，但会参与请求签名；客户端生成 `X-Dreamweave-Key` 时必须把客户端元信息 MD5 追加到原有签名材料末尾。
 
 完整签名流程见 [DEV.md](DEV.md)。
+
+客户端接入、WebGL/HTML 开发、CORS 和签名示例见 [CLIENT_DEV.md](CLIENT_DEV.md)。
+
+注册请求体示例：
+
+```json
+{
+  "uid": "player_001",
+  "nickname": "织梦者",
+  "email": "player@example.com",
+  "password_md5": "e10adc3949ba59abbe56e057f20f883e"
+}
+```
+
+注册和登录时使用 `uid` 与 `password_md5`。`password_md5` 是客户端对 UTF-8 密码原文计算出的 32 位小写 MD5；服务端用该值做匹配，并在数据库中保存它的服务端哈希，不保存明文密码。旧客户端仍可传 `username` 或 `password`，服务端会兼容处理。
 
 ## 管理面板
 
