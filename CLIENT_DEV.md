@@ -63,15 +63,18 @@ allow_origins = [
   "http://127.0.0.1:3000",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "http://localhost:7776",
+  "http://127.0.0.1:7776",
   "http://localhost:7777",
   "http://127.0.0.1:7777",
 ]
+allow_origin_regex = "^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$"
 allow_credentials = true
 allow_methods = ["GET", "POST", "PUT", "OPTIONS"]
 allow_headers = ["*"]
 ```
 
-如果 Web 客户端运行在 Vite、Next.js 或其他端口，需要把对应 origin 加入 `allow_origins`。生产环境不要随意使用 `"*"`，尤其是在 `allow_credentials = true` 时。
+开发环境默认允许 `localhost` 和 `127.0.0.1` 的任意端口，因此 `http://127.0.0.1:7776` 可以请求 `http://127.0.0.1:7777`。生产环境不要随意使用 `"*"` 或宽泛 regex，尤其是在 `allow_credentials = true` 时。
 
 浏览器请求建议：
 

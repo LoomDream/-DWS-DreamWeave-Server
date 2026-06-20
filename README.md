@@ -98,7 +98,8 @@ Web 客户端跨域配置：
 ```toml
 [cors]
 enabled = true
-allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:7776", "http://127.0.0.1:7776"]
+allow_origin_regex = "^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$"
 allow_credentials = true
 allow_methods = ["GET", "POST", "PUT", "OPTIONS"]
 allow_headers = ["*"]
