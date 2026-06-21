@@ -13,6 +13,9 @@ Dreamweave 织梦 3D 联机游戏服务端。当前版本基于 FastAPI 暴露 H
 - `/api/content/story` 返回加密剧情包，带 MD5 完整性校验和开发者密钥 proof。
 - `/api/version` 和 `/api/status` 返回 JSON，内容由 `config.toml` 配置。
 - `/api/content/audio` 和 `/api/content/audio/{filename}` 提供剧情音频列表和 WAV 流式传输。
+- `/api/seed/{map_id}` 从 `seed/map/<地图序号>.txt` 返回地图种子码，用于 Perlin 地形生成。
+- `/api/model` 返回服务启动时扫描到的 `model/` 模型文件名、大小、扩展名和更新时间。
+- `POST /api/down` 在请求体包含 `{"model": "xxx"}` 时下载 `model/` 中的指定模型文件。
 - `/admin` 提供 Token 管理面板，无需用户名密码。
 - 管理面板支持调用日志、端点说明、端点测试、可视化 SQL、表结构/数据查看、多剧情文件管理。
 
@@ -72,12 +75,12 @@ Swagger UI:   http://127.0.0.1:7777/swagger
 [server]
 host = "0.0.0.0"
 port = 7777
-version = "0.1.5"
+version = "0.1.8"
 environment = "development"
 
 [admin]
 enabled = true
-panel_version = "0.1.5"
+panel_version = "0.1.8"
 token = "change-me-dreamweave-admin-token"
 max_sql_rows = 200
 
@@ -89,6 +92,8 @@ developer_secret = "change-me-dreamweave-developer-secret"
 story_file = "content/story.json"
 story_dir = "story"
 audio_dir = "wav/story"
+seed_dir = "seed/map"
+model_dir = "model"
 ```
 
 Web 客户端跨域配置：
@@ -96,7 +101,8 @@ Web 客户端跨域配置：
 ```toml
 [cors]
 enabled = true
-allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:7776", "http://127.0.0.1:7776"]
+allow_origin_regex = "^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$"
 allow_credentials = true
 allow_methods = ["GET", "POST", "PUT", "OPTIONS"]
 allow_headers = ["*"]
@@ -134,6 +140,9 @@ POST /api/content/story
 GET  /api/content/audio
 GET  /api/content/audio/{filename}
 POST /api/content/ack
+GET  /api/seed/{map_id}
+GET  /api/model
+POST /api/down
 ```
 
 鉴权请求头：
@@ -266,6 +275,99 @@ GET /api/content/audio/{filename}
 
 这两个端点位于 `/api/*` 下，因此同样需要正常的 `X-Dreamweave-*` 客户端鉴权签名。列表接口返回文件名、大小、更新时间、URL 和 content type；文件接口以 `audio/wav` 流式返回 WAV 文件。
 
+## 地图种子
+
+地图种子目录：
+
+```text
+./seed/map/
+```
+
+文件命名从 1 开始：
+
+```text
+seed/map/1.txt
+seed/map/2.txt
+```
+
+客户端通过以下端点获取种子码：
+
+```http
+GET /api/seed/{map_id}
+```
+
+示例返回：
+
+```json
+{
+  "ok": true,
+  "route": "api/seed/1",
+  "payload": {
+    "map_id": 1,
+    "seed": "dreamweave-map-1-alpha",
+    "algorithm": "perlin-terrain",
+    "file": "1.txt",
+    "md5": "...",
+    "updated_at": 1234567890
+  }
+}
+```
+
+该端点需要正常的 `X-Dreamweave-*` 客户端签名。`map_id` 必须从 1 开始，文件不存在时返回 `404`。
+
+## 模型文件
+
+模型目录：
+
+```text
+./model/
+```
+
+服务启动时会扫描该目录下的文件，并缓存模型清单。客户端通过：
+
+```http
+GET /api/model
+```
+
+获取模型文件信息。示例返回：
+
+```json
+{
+  "ok": true,
+  "route": "api/model",
+  "payload": {
+    "model_dir": "model",
+    "scanned_at": 1234567890,
+    "count": 1,
+    "total_bytes": 2048,
+    "files": [
+      {
+        "name": "character.glb",
+        "relative_path": "character.glb",
+        "extension": "glb",
+        "bytes": 2048,
+        "updated_at": 1234567890
+      }
+    ]
+  }
+}
+```
+
+该端点需要正常的 `X-Dreamweave-*` 客户端签名。新增或替换模型文件后需要重启服务，模型清单才会重新扫描。
+
+下载指定模型文件：
+
+```http
+POST /api/down
+Content-Type: application/json
+
+{
+  "model": "character.glb"
+}
+```
+
+`model` 字段使用 `/api/model` 返回的 `relative_path`。服务端只允许读取 `model/` 目录内的相对路径，文件不存在返回 `404`。
+
 ## 项目结构
 
 ```text
@@ -281,6 +383,10 @@ GET /api/content/audio/{filename}
 |   `-- legal/
 |-- story/
 |   `-- 1-1.json
+|-- seed/
+|   `-- map/
+|       `-- 1.txt
+|-- model/
 |-- network/
 |   |-- admin.py
 |   |-- api.py
