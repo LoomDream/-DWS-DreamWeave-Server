@@ -1,15 +1,15 @@
 [server]
 host = "0.0.0.0"
 port = 7777
-version = "0.1.5"
+version = "0.1.8"
 motd = "Dreamweave alpha server"
 environment = "development"
 region = "local"
 server_name = "Dreamweave Alpha"
 
 [version]
-minimum_client_version = "0.1.5"
-recommended_client_version = "0.1.5"
+minimum_client_version = "0.1.8"
+recommended_client_version = "0.1.8"
 protocol_version = "2026.06"
 api_revision = "3"
 update_required = false
@@ -18,7 +18,7 @@ release_notes_url = ""
 
 [admin]
 enabled = true
-panel_version = "0.1.5"
+panel_version = "0.1.8"
 # Development default only. Outside development, set a non-sample value here
 # or provide DREAMWEAVE_ADMIN_TOKEN.
 token = "change-me-dreamweave-admin-token"
@@ -77,6 +77,7 @@ story_file = "content/story.json"
 story_dir = "story"
 audio_dir = "wav/story"
 seed_dir = "seed/map"
+model_dir = "model"
 
 [legal]
 terms_file = "content/legal/terms.md"

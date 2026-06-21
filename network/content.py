@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -9,12 +10,14 @@ from .crypto import developer_proof, encrypt_json_payload, md5_hex
 
 
 class ContentStore:
-    def __init__(self, story_file: Path, story_dir: Path, audio_dir: Path, seed_dir: Path, developer_secret: str) -> None:
+    def __init__(self, story_file: Path, story_dir: Path, audio_dir: Path, seed_dir: Path, model_dir: Path, developer_secret: str) -> None:
         self.story_file = story_file
         self.story_dir = story_dir
         self.audio_dir = audio_dir
         self.seed_dir = seed_dir
+        self.model_dir = model_dir
         self.developer_secret = developer_secret
+        self.model_manifest: dict[str, Any] = empty_model_manifest(model_dir)
 
     def load_story(self) -> dict[str, Any]:
         if self.story_dir.exists():
@@ -162,11 +165,75 @@ class ContentStore:
             raise ValueError("seed filename must stay inside seed directory")
         return path
 
+    def scan_models(self) -> dict[str, Any]:
+        self.model_dir.mkdir(parents=True, exist_ok=True)
+        root = self.model_dir.resolve()
+        files: list[dict[str, Any]] = []
+        for path in sorted((item for item in root.rglob("*") if item.is_file()), key=lambda item: item.relative_to(root).as_posix()):
+            relative_path = path.relative_to(root).as_posix()
+            if any(part.startswith(".") for part in path.relative_to(root).parts):
+                continue
+            stat = path.stat()
+            files.append(
+                {
+                    "name": path.name,
+                    "relative_path": relative_path,
+                    "extension": path.suffix.lower().lstrip("."),
+                    "bytes": stat.st_size,
+                    "updated_at": int(stat.st_mtime),
+                }
+            )
+        self.model_manifest = {
+            "model_dir": str(self.model_dir),
+            "scanned_at": int(time.time()),
+            "count": len(files),
+            "total_bytes": sum(int(item["bytes"]) for item in files),
+            "files": files,
+        }
+        return self.model_manifest
+
+    def list_models(self) -> dict[str, Any]:
+        return self.model_manifest
+
+    def model_path(self, relative_path: str) -> Path:
+        safe_path = safe_model_relative_path(relative_path)
+        root = self.model_dir.resolve()
+        path = (root / safe_path).resolve()
+        try:
+            path.relative_to(root)
+        except ValueError as exc:
+            raise ValueError("model path must stay inside model directory") from exc
+        return path
+
 
 def story_filename(chapter: int, act: int) -> str:
     if chapter < 1 or act < 1:
         raise ValueError("chapter and act must be positive integers")
     return f"{chapter}-{act}.json"
+
+
+def empty_model_manifest(model_dir: Path) -> dict[str, Any]:
+    return {
+        "model_dir": str(model_dir),
+        "scanned_at": 0,
+        "count": 0,
+        "total_bytes": 0,
+        "files": [],
+    }
+
+
+def safe_model_relative_path(value: str) -> Path:
+    normalized = value.replace("\\", "/").strip()
+    path = Path(normalized)
+    if not normalized or path.is_absolute():
+        raise ValueError("model path must be relative")
+    if any(part in {"", ".", ".."} or part.startswith(".") for part in path.parts):
+        raise ValueError("model path must not contain hidden, empty, or parent segments")
+    if len(path.parts) > 8:
+        raise ValueError("model path is too deep")
+    if not all(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", part) for part in path.parts):
+        raise ValueError("model path contains invalid characters")
+    return path
 
 
 def safe_story_filename(filename: str) -> str:

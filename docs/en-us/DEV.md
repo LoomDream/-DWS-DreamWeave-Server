@@ -1,4 +1,4 @@
-# Dreamweave Server Dev Notes
+﻿# Dreamweave Server Dev Notes
 
 ## Runtime
 
@@ -153,7 +153,7 @@ Content-Type: application/json
 {
   "client": {
     "name": "DreamweaveClient",
-    "version": "0.1.5",
+    "version": "0.1.8",
     "platform": "windows",
     "build": "dev",
     "device": "desktop"
@@ -168,9 +168,9 @@ Response payload:
   "handshake_id": "...",
   "server_nonce": "...",
   "server_key": "...",
-  "version": "0.1.5",
-  "minimum_client_version": "0.1.5",
-  "recommended_client_version": "0.1.5",
+  "version": "0.1.8",
+  "minimum_client_version": "0.1.8",
+  "recommended_client_version": "0.1.8",
   "api_revision": "3",
   "protocol_version": "2026.06",
   "client_metadata_required": true,
@@ -198,7 +198,7 @@ Content-Type: application/json
   "client_key": "...",
   "client": {
     "name": "DreamweaveClient",
-    "version": "0.1.5",
+    "version": "0.1.8",
     "platform": "windows",
     "build": "dev",
     "device": "desktop"
@@ -285,6 +285,8 @@ POST /api/sync/update
 POST /api/content/story
 POST /api/content/ack
 GET  /api/seed/{map_id}
+GET  /api/model
+POST /api/down
 ```
 
 ## User Data
@@ -323,7 +325,7 @@ POST /api/hello
   "public_message": "Dreamweave server is online.",
   "maintenance": false,
   "maintenance_message": "",
-  "server_version": "0.1.5",
+  "server_version": "0.1.8",
   "protocol_version": "2026.06",
   "api_revision": "3",
   "server_name": "Dreamweave Alpha",
@@ -467,6 +469,35 @@ GET /api/seed/{map_id}
 ```
 
 The endpoint reads `seed/map/<map_id>.txt` and returns JSON with `seed`, `md5`, `updated_at`, and `algorithm = "perlin-terrain"`. `map_id` starts from 1. This endpoint requires normal `X-Dreamweave-*` request signing.
+
+## Model Manifest
+
+Model files live in:
+
+```text
+model/
+```
+
+The server scans this directory at startup and caches the manifest. Clients request it through:
+
+```http
+GET /api/model
+```
+
+The payload contains `model_dir`, `scanned_at`, `count`, `total_bytes`, and `files`. Each file item contains `name`, `relative_path`, `extension`, `bytes`, and `updated_at`. This endpoint requires normal `X-Dreamweave-*` request signing. Restart the server after adding or replacing model files.
+
+Download a model file:
+
+```http
+POST /api/down
+Content-Type: application/json
+
+{
+  "model": "characters/hero.glb"
+}
+```
+
+The `model` value must be a `relative_path` returned by `/api/model`. The server restricts reads to the `model/` directory and rejects absolute paths, parent segments, and hidden directories. Missing files return `404`.
 
 Body:
 

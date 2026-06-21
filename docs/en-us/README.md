@@ -1,4 +1,4 @@
-# Dreamweave Server
+﻿# Dreamweave Server
 
 Dreamweave Server is the backend for the Dreamweave 3D online game. The current version exposes HTTP APIs with FastAPI, stores user data and player state in SQLite, and provides client handshake authentication, request signing, encrypted story-content transfer, and server version/status endpoints.
 
@@ -13,6 +13,7 @@ Dreamweave Server is the backend for the Dreamweave 3D online game. The current 
 - Story JSON transfer includes MD5 integrity checks and developer-secret proof.
 - Story payloads are encrypted at the application layer, independent of HTTPS.
 - Story audio files live in `wav/story` and are streamed through authenticated audio APIs.
+- `/api/model` returns the model manifest scanned from `model/` at server startup.
 - Token-only admin panel with call logs, endpoint details/testing, visual SQLite browsing, SQL execution, and multi-scene story management.
 
 ## Requirements
@@ -97,6 +98,7 @@ http://127.0.0.1:7777/admin
 |   `-- 1-1.json         # Multi-scene story files: <chapter>-<act>.json
 |-- wav/
 |   `-- story/           # WAV story audio files
+|-- model/               # 3D model files scanned at startup
 |-- docs/
 |   `-- en-us/           # English docs
 `-- network/
@@ -131,6 +133,7 @@ POST /api/content/story
 GET  /api/content/audio
 GET  /api/content/audio/{filename}
 POST /api/content/ack
+GET  /api/model
 ```
 
 All authenticated routes require:
@@ -163,7 +166,7 @@ The admin panel uses a single Admin Token. No username/password login is require
 ```toml
 [admin]
 enabled = true
-panel_version = "0.1.5"
+panel_version = "0.1.8"
 token = "change-me-dreamweave-admin-token"
 max_sql_rows = 200
 ```
@@ -250,8 +253,8 @@ Both endpoints are under `/api/*`, so they require normal `X-Dreamweave-*` reque
 
 ```toml
 [version]
-minimum_client_version = "0.1.5"
-recommended_client_version = "0.1.5"
+minimum_client_version = "0.1.8"
+recommended_client_version = "0.1.8"
 protocol_version = "2026.06"
 api_revision = "3"
 update_required = false

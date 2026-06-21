@@ -1,4 +1,4 @@
-# Dreamweave Server Dev Notes
+﻿# Dreamweave Server Dev Notes
 
 ## Клиентская аутентификация
 
@@ -13,7 +13,7 @@ Content-Type: application/json
 {
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.5",
+    "version": "0.1.8",
     "platform": "web",
     "build": "dev",
     "device": "browser"
@@ -36,7 +36,7 @@ server_key = MD5(server_secret + ":" + server_nonce)
   "client_key": "...",
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.5",
+    "version": "0.1.8",
     "platform": "web",
     "build": "dev",
     "device": "browser"
@@ -105,6 +105,8 @@ GET  /api/content/audio
 GET  /api/content/audio/{filename}
 POST /api/content/ack
 GET  /api/seed/{map_id}
+GET  /api/model
+POST /api/down
 ```
 
 ## Данные пользователя
@@ -165,3 +167,32 @@ GET /api/seed/{map_id}
 ```
 
 Endpoint читает `seed/map/<map_id>.txt` и возвращает JSON с `seed`, `md5`, `updated_at` и `algorithm = "perlin-terrain"`. `map_id` начинается с 1. Требуется обычная подпись `X-Dreamweave-*`.
+
+## Список моделей
+
+Файлы моделей находятся в:
+
+```text
+model/
+```
+
+Сервер сканирует этот каталог при запуске и кэширует manifest. Клиент получает его через:
+
+```http
+GET /api/model
+```
+
+Payload содержит `model_dir`, `scanned_at`, `count`, `total_bytes` и `files`. Каждый элемент `files` содержит `name`, `relative_path`, `extension`, `bytes`, `updated_at`. Требуется обычная подпись `X-Dreamweave-*`. После добавления или замены моделей перезапустите сервер.
+
+Скачать файл модели:
+
+```http
+POST /api/down
+Content-Type: application/json
+
+{
+  "model": "characters/hero.glb"
+}
+```
+
+Значение `model` должно быть `relative_path`, который вернул `/api/model`. Сервер разрешает только относительные пути внутри `model/` и отклоняет абсолютные пути, `..` и скрытые каталоги. Если файл отсутствует, возвращается `404`.

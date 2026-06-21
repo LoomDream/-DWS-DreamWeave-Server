@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 import tomllib
@@ -76,6 +76,7 @@ class ContentConfig:
     story_dir: Path
     audio_dir: Path
     seed_dir: Path
+    model_dir: Path
 
 
 @dataclass(frozen=True)
@@ -145,15 +146,15 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
         server=ServerConfig(
             host=str(server.get("host", "0.0.0.0")),
             port=int(server.get("port", 7777)),
-            version=str(server.get("version", "0.1.5")),
+            version=str(server.get("version", "0.1.8")),
             motd=str(server.get("motd", "")),
             environment=environment,
             region=str(server.get("region", "local")),
             server_name=str(server.get("server_name", "Dreamweave")),
         ),
         version=VersionConfig(
-            minimum_client_version=str(version.get("minimum_client_version", "0.1.5")),
-            recommended_client_version=str(version.get("recommended_client_version", "0.1.5")),
+            minimum_client_version=str(version.get("minimum_client_version", "0.1.8")),
+            recommended_client_version=str(version.get("recommended_client_version", "0.1.8")),
             protocol_version=str(version.get("protocol_version", "2026.06")),
             api_revision=str(version.get("api_revision", "3")),
             update_required=bool(version.get("update_required", False)),
@@ -162,7 +163,7 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
         ),
         admin=AdminConfig(
             enabled=bool(admin.get("enabled", True)),
-            panel_version=str(admin.get("panel_version", "0.1.5")),
+            panel_version=str(admin.get("panel_version", "0.1.8")),
             token=admin_token,
             max_sql_rows=int(admin.get("max_sql_rows", 200)),
         ),
@@ -212,6 +213,7 @@ def load_config(path: str | Path = "config.toml") -> AppConfig:
             story_dir=_resolve_path(base_dir, str(content.get("story_dir", "story"))),
             audio_dir=_resolve_path(base_dir, str(content.get("audio_dir", "wav/story"))),
             seed_dir=_resolve_path(base_dir, str(content.get("seed_dir", "seed/map"))),
+            model_dir=_resolve_path(base_dir, str(content.get("model_dir", "model"))),
         ),
         legal=LegalConfig(
             terms_file=_resolve_path(base_dir, str(legal.get("terms_file", "content/legal/terms.md"))),

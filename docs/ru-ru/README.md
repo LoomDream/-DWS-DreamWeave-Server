@@ -1,4 +1,4 @@
-# Dreamweave Server
+﻿# Dreamweave Server
 
 Dreamweave Server — серверная часть 3D онлайн-игры Dreamweave. Сервер использует FastAPI для HTTP API и SQLite для пользователей, сессий, состояния игрока, handshake-сессий и журналов вызовов.
 
@@ -9,6 +9,7 @@ Dreamweave Server — серверная часть 3D онлайн-игры Dre
 - Подписанные запросы. `X-Dreamweave-Client-Name` и `X-Dreamweave-Client-Version` обязательны.
 - Зашифрованная передача сюжета через `/api/content/story`.
 - Список и потоковая передача WAV через `/api/content/audio`.
+- `/api/model` возвращает список моделей, просканированный из `model/` при запуске.
 - `/api/version` и `/api/status` возвращают JSON.
 - `/admin` — панель управления по Admin Token.
 - Данные пользователя содержат `uid`, `nickname` и `email`; устаревшие поля `username` и `display_name` также возвращаются для совместимости.
@@ -55,11 +56,11 @@ GET /api/status
 
 ```toml
 [server]
-version = "0.1.5"
+version = "0.1.8"
 
 [version]
-minimum_client_version = "0.1.5"
-recommended_client_version = "0.1.5"
+minimum_client_version = "0.1.8"
+recommended_client_version = "0.1.8"
 protocol_version = "2026.06"
 api_revision = "3"
 

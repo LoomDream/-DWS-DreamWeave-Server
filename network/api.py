@@ -74,6 +74,10 @@ class ContentAckRequest(BaseModel):
     client_key: str
 
 
+class ModelDownloadRequest(BaseModel):
+    model: str = Field(min_length=1, max_length=256)
+
+
 class DreamweaveApi:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
@@ -83,6 +87,7 @@ class DreamweaveApi:
             config.content.story_dir,
             config.content.audio_dir,
             config.content.seed_dir,
+            config.content.model_dir,
             config.security.developer_secret,
         )
         self.started_at = int(time.time())
@@ -109,6 +114,7 @@ class DreamweaveApi:
         @app.on_event("startup")
         def startup() -> None:
             self.database.initialize()
+            self.content.scan_models()
 
         @app.middleware("http")
         async def client_auth_middleware(request: Request, call_next: Any) -> Any:
@@ -168,6 +174,7 @@ class DreamweaveApi:
             legal_privacy_exists = self.config.legal.privacy_file.exists()
             legal_eula_exists = self.config.legal.eula_file.exists()
             seed_count = len(list(self.config.content.seed_dir.glob("*.txt"))) if self.config.content.seed_dir.exists() else 0
+            model_manifest = self.content.list_models()
             degraded = not database_ok or not story_content_ok or not legal_terms_exists or not legal_privacy_exists or not legal_eula_exists
             return self.ok(
                 "api/status",
@@ -214,6 +221,10 @@ class DreamweaveApi:
                         "story_audio_count": len(self.content.list_story_audio()),
                         "seed_dir": str(self.config.content.seed_dir),
                         "map_seed_count": seed_count,
+                        "model_dir": str(self.config.content.model_dir),
+                        "model_count": int(model_manifest["count"]),
+                        "model_total_bytes": int(model_manifest["total_bytes"]),
+                        "model_scanned_at": int(model_manifest["scanned_at"]),
                     },
                     "legal": {
                         "terms_file_exists": legal_terms_exists,
@@ -413,6 +424,20 @@ class DreamweaveApi:
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             return self.ok(f"api/seed/{map_id}", seed)
+
+        @app.get("/api/model")
+        def model_manifest() -> dict[str, Any]:
+            return self.ok("api/model", self.content.list_models())
+
+        @app.post("/api/down")
+        def download_model(request: ModelDownloadRequest) -> FileResponse:
+            try:
+                path = self.content.model_path(request.model)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            if not path.exists() or not path.is_file():
+                raise HTTPException(status_code=404, detail="model file does not exist")
+            return FileResponse(path, media_type=model_media_type(path.name), filename=path.name)
 
         app.include_router(AdminPanel(self.config, self.database, self.content).router())
         return app
@@ -659,6 +684,19 @@ def normalize_language(value: str) -> str:
         "ru-ru": "ru-RU",
     }
     return aliases.get(value.strip().lower(), value.strip() or "zh-CN")
+
+
+def model_media_type(filename: str) -> str:
+    lower = filename.lower()
+    if lower.endswith(".glb"):
+        return "model/gltf-binary"
+    if lower.endswith(".gltf"):
+        return "model/gltf+json"
+    if lower.endswith(".fbx"):
+        return "application/octet-stream"
+    if lower.endswith(".obj"):
+        return "text/plain; charset=utf-8"
+    return "application/octet-stream"
 
 
 def password_credential(password_md5: str | None, password: str | None) -> tuple[str, str | None]:
