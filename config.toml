@@ -1,15 +1,15 @@
 [server]
 host = "0.0.0.0"
 port = 7777
-version = "0.1.5"
+version = "0.1.8"
 motd = "Dreamweave alpha server"
 environment = "development"
 region = "local"
 server_name = "Dreamweave Alpha"
 
 [version]
-minimum_client_version = "0.1.5"
-recommended_client_version = "0.1.5"
+minimum_client_version = "0.1.8"
+recommended_client_version = "0.1.8"
 protocol_version = "2026.06"
 api_revision = "3"
 update_required = false
@@ -18,7 +18,7 @@ release_notes_url = ""
 
 [admin]
 enabled = true
-panel_version = "0.1.5"
+panel_version = "0.1.8"
 # Development default only. Outside development, set a non-sample value here
 # or provide DREAMWEAVE_ADMIN_TOKEN.
 token = "change-me-dreamweave-admin-token"
@@ -46,10 +46,12 @@ allow_origins = [
   "http://127.0.0.1:3000",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "http://localhost:7776",
+  "http://127.0.0.1:7776",
   "http://localhost:7777",
   "http://127.0.0.1:7777",
 ]
-allow_origin_regex = ""
+allow_origin_regex = "^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$"
 allow_credentials = true
 allow_methods = ["GET", "POST", "PUT", "OPTIONS"]
 allow_headers = ["*"]
@@ -74,6 +76,8 @@ path = "dreamweave.sqlite3"
 story_file = "content/story.json"
 story_dir = "story"
 audio_dir = "wav/story"
+seed_dir = "seed/map"
+model_dir = "model"
 
 [legal]
 terms_file = "content/legal/terms.md"

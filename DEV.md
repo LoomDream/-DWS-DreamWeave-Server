@@ -56,7 +56,7 @@ Content-Type: application/json
 {
   "client": {
     "name": "DreamweaveClient",
-    "version": "0.1.5",
+    "version": "0.1.8",
     "platform": "windows",
     "build": "dev",
     "device": "desktop"
@@ -71,9 +71,9 @@ Content-Type: application/json
   "handshake_id": "...",
   "server_nonce": "...",
   "server_key": "...",
-  "version": "0.1.5",
-  "minimum_client_version": "0.1.5",
-  "recommended_client_version": "0.1.5",
+  "version": "0.1.8",
+  "minimum_client_version": "0.1.8",
+  "recommended_client_version": "0.1.8",
   "api_revision": "3",
   "protocol_version": "2026.06",
   "client_metadata_required": true,
@@ -99,7 +99,7 @@ Content-Type: application/json
   "client_key": "...",
   "client": {
     "name": "DreamweaveClient",
-    "version": "0.1.5",
+    "version": "0.1.8",
     "platform": "windows",
     "build": "dev",
     "device": "desktop"
@@ -184,6 +184,9 @@ POST /api/content/story
 GET  /api/content/audio
 GET  /api/content/audio/{filename}
 POST /api/content/ack
+GET  /api/seed/{map_id}
+GET  /api/model
+POST /api/down
 ```
 
 ## 用户数据
@@ -325,6 +328,59 @@ GET /api/content/audio/{filename}
 
 两个端点都需要正常的 `X-Dreamweave-*` 请求签名。`/api/content/audio` 返回可用音频列表；`/api/content/audio/{filename}` 以 `audio/wav` 流式返回文件。
 
+## 地图种子
+
+地图种子文件位于：
+
+```text
+./seed/map/
+```
+
+文件名从 1 开始递增：
+
+```text
+seed/map/1.txt
+seed/map/2.txt
+seed/map/3.txt
+```
+
+每个文件只保存一个种子码文本。客户端通过：
+
+```http
+GET /api/seed/{map_id}
+```
+
+获取用于 Perlin 地形生成的种子码。`map_id` 必须从 1 开始；服务端读取 `seed/map/<map_id>.txt`，返回 JSON，其中包含 `seed`、`md5`、`updated_at` 和 `algorithm = "perlin-terrain"`。该端点同样需要正常的 `X-Dreamweave-*` 请求签名。
+
+## 模型清单
+
+模型文件放在：
+
+```text
+./model/
+```
+
+服务启动时会扫描此目录，记录文件名、相对路径、扩展名、大小、更新时间和扫描时间。客户端通过：
+
+```http
+GET /api/model
+```
+
+获取启动时缓存的模型清单。返回字段包含 `model_dir`、`scanned_at`、`count`、`total_bytes` 和 `files`。`files` 中每一项包含 `name`、`relative_path`、`extension`、`bytes`、`updated_at`。该端点同样需要正常的 `X-Dreamweave-*` 请求签名。新增模型后需要重启服务刷新清单。
+
+下载模型文件：
+
+```http
+POST /api/down
+Content-Type: application/json
+
+{
+  "model": "characters/hero.glb"
+}
+```
+
+`model` 必须使用 `/api/model` 返回的 `relative_path`。服务端会限制路径留在 `model/` 内，禁止绝对路径、父级目录和隐藏目录。文件不存在返回 `404`。
+
 ## 管理面板
 
 入口：
@@ -370,9 +426,9 @@ PRAGMA
 
 请求体设置 `write=true` 时允许执行单条写 SQL。仍然禁止多语句输入。
 
-## ????
+## 法律文档
 
-?????? Markdown ?????
+服务端提供 Markdown 格式法律文档：
 
 ```text
 GET /api/legal/terms
@@ -380,9 +436,9 @@ GET /api/legal/privacy
 GET /api/legal/eula
 ```
 
-`/api/legal/eula` ?????????????EULA???????????????????????????????????????????
+`/api/legal/eula` 用于返回最终用户许可协议（EULA），内容覆盖许可证边界、反私服、反破解和反逆向等条款。
 
-??? `config.toml` ? `[legal]` ???
+路径由 `config.toml` 的 `[legal]` 配置：
 
 ```toml
 terms_file = "content/legal/terms.md"
@@ -414,7 +470,7 @@ eula_dir = "content/legal/eula"
   "status": "ok",
   "public_message": "Dreamweave server is online.",
   "maintenance": false,
-  "server_version": "0.1.5",
+  "server_version": "0.1.8",
   "protocol_version": "2026.06",
   "api_revision": "3",
   "database": {"ok": true, "path": "..."},

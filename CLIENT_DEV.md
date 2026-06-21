@@ -1,6 +1,6 @@
 # Dreamweave 客户端开发文档
 
-版本：0.1.5
+版本：0.1.8
 
 本文档面向 Dreamweave 游戏客户端开发者，默认客户端目标为手机和电脑均可运行的 WebGL/HTML 客户端，也适用于 Unity、Godot、原生 OpenGL 客户端接入同一套 HTTP API。
 
@@ -43,9 +43,9 @@ POST /api/hello
 版本要求：
 
 ```text
-server_version = 0.1.5
-minimum_client_version = 0.1.5
-recommended_client_version = 0.1.5
+server_version = 0.1.8
+minimum_client_version = 0.1.8
+recommended_client_version = 0.1.8
 api_revision = 3
 ```
 
@@ -63,15 +63,18 @@ allow_origins = [
   "http://127.0.0.1:3000",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "http://localhost:7776",
+  "http://127.0.0.1:7776",
   "http://localhost:7777",
   "http://127.0.0.1:7777",
 ]
+allow_origin_regex = "^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$"
 allow_credentials = true
 allow_methods = ["GET", "POST", "PUT", "OPTIONS"]
 allow_headers = ["*"]
 ```
 
-如果 Web 客户端运行在 Vite、Next.js 或其他端口，需要把对应 origin 加入 `allow_origins`。生产环境不要随意使用 `"*"`，尤其是在 `allow_credentials = true` 时。
+开发环境默认允许 `localhost` 和 `127.0.0.1` 的任意端口，因此 `http://127.0.0.1:7776` 可以请求 `http://127.0.0.1:7777`。生产环境不要随意使用 `"*"` 或宽泛 regex，尤其是在 `allow_credentials = true` 时。
 
 浏览器请求建议：
 
@@ -88,7 +91,7 @@ fetch(url, {
 
 ## 4. 客户端元信息
 
-0.1.5 起，客户端请求必须带客户端元信息。
+0.1.8 起，客户端请求必须带客户端元信息。
 
 `POST /api/hello` 请求体必须包含：
 
@@ -96,7 +99,7 @@ fetch(url, {
 {
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.5",
+    "version": "0.1.8",
     "platform": "web",
     "build": "dev",
     "device": "browser"
@@ -108,7 +111,7 @@ fetch(url, {
 
 ```http
 X-Dreamweave-Client-Name: DreamweaveWeb
-X-Dreamweave-Client-Version: 0.1.5
+X-Dreamweave-Client-Version: 0.1.8
 X-Dreamweave-Client-Platform: web
 X-Dreamweave-Client-Build: dev
 X-Dreamweave-Client-Device: browser
@@ -142,7 +145,7 @@ Content-Type: application/json
 {
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.5",
+    "version": "0.1.8",
     "platform": "web",
     "build": "dev",
     "device": "browser"
@@ -159,9 +162,9 @@ Content-Type: application/json
     "handshake_id": "...",
     "server_nonce": "...",
     "server_key": "...",
-    "version": "0.1.5",
-    "minimum_client_version": "0.1.5",
-    "recommended_client_version": "0.1.5",
+    "version": "0.1.8",
+    "minimum_client_version": "0.1.8",
+    "recommended_client_version": "0.1.8",
     "api_revision": "3",
     "protocol_version": "2026.06",
     "client_metadata_required": true
@@ -192,7 +195,7 @@ client_key = MD5(server_secret + ":" + server_nonce + ":" + client_nonce)
   "client_key": "...",
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.5",
+    "version": "0.1.8",
     "platform": "web",
     "build": "dev",
     "device": "browser"
@@ -219,7 +222,7 @@ X-Dreamweave-Handshake: <handshake_id>
 X-Dreamweave-Timestamp: <unix_seconds>
 X-Dreamweave-Nonce: <unique_request_nonce>
 X-Dreamweave-Client-Name: DreamweaveWeb
-X-Dreamweave-Client-Version: 0.1.5
+X-Dreamweave-Client-Version: 0.1.8
 X-Dreamweave-Client-Platform: web
 X-Dreamweave-Client-Build: dev
 X-Dreamweave-Client-Device: browser
@@ -266,7 +269,7 @@ client_device
 const SERVER = "http://127.0.0.1:7777";
 const CLIENT = {
   name: "DreamweaveWeb",
-  version: "0.1.5",
+  version: "0.1.8",
   platform: "web",
   build: "dev",
   device: navigator.userAgent.slice(0, 80),
@@ -473,6 +476,35 @@ POST /api/content/ack
 ```
 
 回传确认。
+
+地图种子：
+
+```http
+GET /api/seed/{map_id}
+```
+
+服务端会读取 `seed/map/<map_id>.txt`，其中 `map_id` 从 1 开始。返回 payload 中的 `seed` 字段用于客户端 Perlin 地形生成；`md5` 可用于缓存校验。该端点同样需要握手后的签名请求头。
+
+模型清单：
+
+```http
+GET /api/model
+```
+
+服务端启动时扫描 `model/` 目录，并缓存模型文件清单。返回 payload 中的 `files` 数组包含 `name`、`relative_path`、`extension`、`bytes`、`updated_at`。客户端可用 `bytes` 和 `updated_at` 做资源缓存判断。新增或替换模型后需要重启服务刷新清单。
+
+下载指定模型：
+
+```http
+POST /api/down
+Content-Type: application/json
+
+{
+  "model": "characters/hero.glb"
+}
+```
+
+`model` 字段使用 `/api/model` 返回的 `relative_path`。响应是模型文件流，客户端按文件扩展名或响应 `Content-Type` 加载。
 
 ## 10. 客户端性能建议
 

@@ -309,6 +309,9 @@ BASE_ENDPOINTS = [
     ("GET", "/api/content/audio"),
     ("GET", "/api/content/audio/{filename}"),
     ("POST", "/api/content/ack"),
+    ("GET", "/api/seed/{map_id}"),
+    ("GET", "/api/model"),
+    ("POST", "/api/down"),
 ]
 
 
@@ -362,6 +365,9 @@ DOCS: dict[str, dict[str, Any]] = {
             "列出剧情音频文件。",
             "流式返回 WAV 音频。",
             "确认剧情内容 MD5 proof。",
+            "返回地图种子码，用于 Perlin 地形生成。",
+            "返回服务启动时扫描到的模型文件清单。",
+            "按请求体中的 model 字段下载指定模型文件。",
         ]),
     },
     "en-US": {
@@ -409,6 +415,9 @@ DOCS: dict[str, dict[str, Any]] = {
             "List story audio files.",
             "Stream a WAV audio file.",
             "Confirm story content MD5 proof.",
+            "Return a map seed for Perlin terrain generation.",
+            "Return the model file manifest scanned at startup.",
+            "Download the model file named by the request body's model field.",
         ]),
     },
     "ja-JP": {
@@ -456,6 +465,9 @@ DOCS: dict[str, dict[str, Any]] = {
             "ストーリー音声ファイルを列挙します。",
             "WAV 音声をストリームします。",
             "ストーリー MD5 proof を確認します。",
+            "Perlin 地形生成用のマップ seed を返します。",
+            "起動時にスキャンしたモデルファイル一覧を返します。",
+            "request body の model フィールドで指定したモデルファイルをダウンロードします。",
         ]),
     },
     "ru-RU": {
@@ -503,6 +515,9 @@ DOCS: dict[str, dict[str, Any]] = {
             "Показывает аудиофайлы сюжета.",
             "Передает WAV аудио потоком.",
             "Подтверждает MD5 proof контента.",
+            "Возвращает seed карты для генерации Perlin terrain.",
+            "Возвращает список model файлов, просканированный при запуске.",
+            "Скачивает model файл, указанный в поле model тела запроса.",
         ]),
     },
 }

@@ -1,4 +1,4 @@
-# Dreamweave Server 開発メモ
+﻿# Dreamweave Server 開発メモ
 
 ## クライアント認証
 
@@ -13,7 +13,7 @@ Content-Type: application/json
 {
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.5",
+    "version": "0.1.8",
     "platform": "web",
     "build": "dev",
     "device": "browser"
@@ -36,7 +36,7 @@ server_key = MD5(server_secret + ":" + server_nonce)
   "client_key": "...",
   "client": {
     "name": "DreamweaveWeb",
-    "version": "0.1.5",
+    "version": "0.1.8",
     "platform": "web",
     "build": "dev",
     "device": "browser"
@@ -104,6 +104,9 @@ POST /api/content/story
 GET  /api/content/audio
 GET  /api/content/audio/{filename}
 POST /api/content/ack
+GET  /api/seed/{map_id}
+GET  /api/model
+POST /api/down
 ```
 
 ## ユーザーデータ
@@ -141,3 +144,55 @@ wav/story/*.wav
 ```
 
 暗号化ストーリーを受信したクライアントは、復号、MD5 検証、`/api/content/ack` による確認を行います。
+
+## マップ seed
+
+マップ seed ファイルは以下に置きます。
+
+```text
+seed/map/
+```
+
+ファイル名は `1.txt` から始めます。
+
+```text
+seed/map/1.txt
+seed/map/2.txt
+```
+
+クライアントは以下で seed を取得します。
+
+```http
+GET /api/seed/{map_id}
+```
+
+この endpoint は `seed/map/<map_id>.txt` を読み、`seed`、`md5`、`updated_at`、`algorithm = "perlin-terrain"` を JSON で返します。`map_id` は 1 から始まります。通常の `X-Dreamweave-*` 署名が必要です。
+
+## モデル一覧
+
+モデルファイルは以下に置きます。
+
+```text
+model/
+```
+
+サーバーは起動時にこのディレクトリをスキャンし、一覧をキャッシュします。クライアントは以下で取得します。
+
+```http
+GET /api/model
+```
+
+payload には `model_dir`、`scanned_at`、`count`、`total_bytes`、`files` が含まれます。各 file には `name`、`relative_path`、`extension`、`bytes`、`updated_at` が含まれます。通常の `X-Dreamweave-*` 署名が必要です。モデルを追加または置換した後はサーバーを再起動してください。
+
+モデルファイルのダウンロード:
+
+```http
+POST /api/down
+Content-Type: application/json
+
+{
+  "model": "characters/hero.glb"
+}
+```
+
+`model` は `/api/model` が返す `relative_path` を使います。サーバーは `model/` 内の相対パスだけを許可し、絶対パス、親ディレクトリ、隠しディレクトリを拒否します。ファイルが存在しない場合は `404` です。
