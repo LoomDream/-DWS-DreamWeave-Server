@@ -375,16 +375,14 @@ class DreamweaveApi:
 
         @app.post("/api/content/story")
         def content_story(request: StoryRequest, http_request: Request) -> dict[str, Any]:
-            if not self.config.status.allow_content_download:
-                raise HTTPException(status_code=503, detail="content download is disabled")
+            self.require_content_download_enabled()
             session = self.authenticated_session(http_request)
             package = self.content.encrypted_story_package(session["session_key"])
             return self.ok("api/content/story", package)
 
         @app.get("/api/content/audio")
         def content_audio_list() -> dict[str, Any]:
-            if not self.config.status.allow_content_download:
-                raise HTTPException(status_code=503, detail="content download is disabled")
+            self.require_content_download_enabled()
             return self.ok(
                 "api/content/audio",
                 {
@@ -395,8 +393,7 @@ class DreamweaveApi:
 
         @app.get("/api/content/audio/{filename}")
         def content_audio_stream(filename: str) -> FileResponse:
-            if not self.config.status.allow_content_download:
-                raise HTTPException(status_code=503, detail="content download is disabled")
+            self.require_content_download_enabled()
             try:
                 path = self.content.audio_path(filename)
             except ValueError as exc:
@@ -427,10 +424,12 @@ class DreamweaveApi:
 
         @app.get("/api/model")
         def model_manifest() -> dict[str, Any]:
+            self.require_content_download_enabled()
             return self.ok("api/model", self.content.list_models())
 
         @app.post("/api/down")
         def download_model(request: ModelDownloadRequest) -> FileResponse:
+            self.require_content_download_enabled()
             try:
                 path = self.content.model_path(request.model)
             except ValueError as exc:
@@ -441,6 +440,10 @@ class DreamweaveApi:
 
         app.include_router(AdminPanel(self.config, self.database, self.content).router())
         return app
+
+    def require_content_download_enabled(self) -> None:
+        if not self.config.status.allow_content_download:
+            raise HTTPException(status_code=503, detail="content download is disabled")
 
     def require_user(self, token: str) -> dict[str, Any]:
         user = self.database.get_user_by_token(token)
